@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import replace
 
+from engine.dates import DAYS_PER_YEAR_ACT365F
 from engine.market.market_data import MarketData
 
 
@@ -33,9 +34,17 @@ def bump_dividend_yield(market: MarketData, dz: float) -> MarketData:
 
 
 def roll_valuation_date(market: MarketData, days: int) -> MarketData:
-    """Move the valuation date by ``days`` calendar days, holding spot, vols and rates fixed.
+    """Move the valuation date by ``days`` calendar days with the market unchanged by date.
 
-    Curves and surfaces are parametrised by year fraction from the valuation date, so this is a
-    pure passage of time at constant market: ``τ → τ − days/365``.
+    Spot and implied vols are held fixed; curves realise their forwards
+    (``P'(0,t) = P(0,t+h)/P(0,h)``, identity for flat curves); discrete dividends keep their
+    ex-dates, so their year fractions shrink by ``h``.
     """
-    return replace(market, valuation_date=market.valuation_date + dt.timedelta(days=days))
+    h = days / DAYS_PER_YEAR_ACT365F
+    return replace(
+        market,
+        valuation_date=market.valuation_date + dt.timedelta(days=days),
+        discount=market.discount.rolled(h),
+        dividend_yield=market.dividend_yield.rolled(h),
+        borrow=market.borrow.rolled(h),
+    )

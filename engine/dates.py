@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 DAYS_PER_YEAR_ACT365F: float = 365.0
+#: Year fractions closer than this denote the same instant. Dates map to multiples of 1/365, so
+#: this only absorbs floating-point error from differences such as (T − t).
+SAME_INSTANT: float = 1e-9
 
 
 class DayCount(StrEnum):
