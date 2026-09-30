@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description The product under every registered method, with convergence and exercise boundary.
+         */
+        post: operations["compare_api_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -55,7 +75,7 @@ export interface paths {
         put?: never;
         /**
          * Implied Vol
-         * @description Flat implied volatility reproducing a unit price (Let's Be Rational).
+         * @description Flat implied volatility reproducing a unit price (Let's Be Rational), European only.
          */
         post: operations["implied_vol_api_implied_vol_post"];
         delete?: never;
@@ -73,7 +93,7 @@ export interface paths {
         };
         /**
          * Meta
-         * @description Registered pricing methods and version.
+         * @description Registered pricing methods, the products each supports, and version.
          */
         get: operations["meta_api_meta_get"];
         put?: never;
@@ -116,6 +136,8 @@ export interface paths {
         /**
          * Profile
          * @description Position value and desk greeks along spot or time (full revaluation at each point).
+         *
+         *     Numerical methods run at the scenario resolution (``settings.scenario``).
          */
         post: operations["profile_api_profile_post"];
         delete?: never;
@@ -129,6 +151,39 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AmericanOptionIn
+         * @description American call or put (exercisable any day up to expiry).
+         */
+        AmericanOptionIn: {
+            /**
+             * Currency
+             * @default EUR
+             */
+            currency?: string;
+            /**
+             * Expiry
+             * Format: date
+             */
+            expiry: string;
+            option_type: components["schemas"]["OptionType"];
+            /**
+             * Quantity
+             * @description Units of underlying
+             * @default 1
+             */
+            quantity?: number;
+            /**
+             * Strike
+             * @description Strike, in price units
+             */
+            strike: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "american";
+        };
+        /**
          * BumpSettingsIn
          * @description Bump sizes for bump-and-revalue greeks.
          */
@@ -137,22 +192,75 @@ export interface components {
              * Rate Abs
              * @default 0.0001
              */
-            rate_abs: number;
+            rate_abs?: number;
             /**
              * Spot Rel
              * @default 0.001
              */
-            spot_rel: number;
+            spot_rel?: number;
             /**
              * Time Days
              * @default 1
              */
-            time_days: number;
+            time_days?: number;
             /**
              * Vol Abs
              * @default 0.001
              */
-            vol_abs: number;
+            vol_abs?: number;
+        };
+        /**
+         * CompareRequest
+         * @description The same product under every registered method.
+         */
+        CompareRequest: {
+            /**
+             * Convergence
+             * @default true
+             */
+            convergence?: boolean;
+            pricing: components["schemas"]["PriceRequest"];
+        };
+        /**
+         * CompareResponse
+         * @description Methods side by side.
+         */
+        CompareResponse: {
+            boundary?: components["schemas"]["ExerciseBoundary"] | null;
+            /** Currency */
+            currency: string;
+            /**
+             * European Price
+             * @description Same contract with European exercise (unit, closed form)
+             */
+            european_price?: number | null;
+            /** Methods */
+            methods: components["schemas"]["MethodComparison"][];
+        };
+        /**
+         * ConvergencePointOut
+         * @description Price at one resolution.
+         */
+        ConvergencePointOut: {
+            /**
+             * Price
+             * @description Unit price, currency
+             */
+            price: number;
+            /** Resolution */
+            resolution: number;
+            /** Runtime Ms */
+            runtime_ms: number;
+        };
+        /**
+         * CurveIn
+         * @description Zero curve with log-linear discount factors between pillars.
+         *
+         *     Flat before the first pillar; the last forward is extended beyond the last.
+         */
+        CurveIn: {
+            /** Pillars */
+            pillars: components["schemas"]["PillarIn"][];
         };
         /**
          * DiagnosticsOut
@@ -173,13 +281,92 @@ export interface components {
             revaluations: number;
             /**
              * Runtime Ms
-             * @description Engine wall-clock time for price and greeks, ms
+             * @description Engine CPU time for price and greeks, ms
              */
             runtime_ms: number;
             settings: components["schemas"]["SettingsIn"];
             /** Warnings */
             warnings: string[];
         };
+        /**
+         * DigitalOptionIn
+         * @description Cash-or-nothing digital paying ``payout`` per unit if in the money at expiry.
+         */
+        DigitalOptionIn: {
+            /**
+             * Currency
+             * @default EUR
+             */
+            currency?: string;
+            /**
+             * Expiry
+             * Format: date
+             */
+            expiry: string;
+            option_type: components["schemas"]["OptionType"];
+            /**
+             * Payout
+             * @description Cash per unit, currency
+             * @default 1
+             */
+            payout?: number;
+            /**
+             * Quantity
+             * @description Units of underlying
+             * @default 1
+             */
+            quantity?: number;
+            /**
+             * Strike
+             * @description Strike, in price units
+             */
+            strike: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "digital";
+        };
+        /**
+         * DigitalSettingsIn
+         * @description Digital greek smoothing.
+         */
+        DigitalSettingsIn: {
+            /**
+             * Spread Width Rel
+             * @default 0.01
+             */
+            spread_width_rel?: number;
+        };
+        /**
+         * DividendIn
+         * @description Discrete dividend: ``S → S·(1 − proportional) − cash`` at the ex-date open.
+         */
+        DividendIn: {
+            /**
+             * Cash
+             * @description Cash per share, currency
+             * @default 0
+             */
+            cash?: number;
+            /**
+             * Ex Date
+             * Format: date
+             */
+            ex_date: string;
+            /**
+             * Proportional
+             * @description Fraction of spot
+             * @default 0
+             */
+            proportional?: number;
+        };
+        /**
+         * DividendTreatment
+         * @description How discrete cash dividends enter the dynamics.
+         * @enum {string}
+         */
+        DividendTreatment: "escrowed" | "spot";
         /**
          * ErrorResponse
          * @description Engine error surfaced to the client.
@@ -197,7 +384,7 @@ export interface components {
              * Currency
              * @default EUR
              */
-            currency: string;
+            currency?: string;
             /**
              * Expiry
              * Format: date
@@ -209,18 +396,33 @@ export interface components {
              * @description Units of underlying
              * @default 1
              */
-            quantity: number;
+            quantity?: number;
             /**
              * Strike
              * @description Strike, in price units
              */
             strike: number;
             /**
-             * Type
-             * @default european
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             type: "european";
+        };
+        /**
+         * ExerciseBoundary
+         * @description PDE early-exercise boundary: exercise when spot is beyond ``spot`` at ``days``.
+         */
+        ExerciseBoundary: {
+            /**
+             * Days
+             * @description Days from the valuation date
+             */
+            days: number[];
+            /**
+             * Spot
+             * @description Critical spot S*; null where not exercised
+             */
+            spot: (number | null)[];
         };
         /**
          * Greek
@@ -281,28 +483,28 @@ export interface components {
              * Horizon Days
              * @default 0
              */
-            horizon_days: number;
+            horizon_days?: number;
             pricing: components["schemas"]["PriceRequest"];
             /**
              * Spot Range Pct
              * @default 20
              */
-            spot_range_pct: number;
+            spot_range_pct?: number;
             /**
              * Spot Steps
              * @default 21
              */
-            spot_steps: number;
+            spot_steps?: number;
             /**
              * Vol Range Pts
              * @default 10
              */
-            vol_range_pts: number;
+            vol_range_pts?: number;
             /**
              * Vol Steps
              * @default 21
              */
-            vol_steps: number;
+            vol_steps?: number;
         };
         /**
          * HeatmapResponse
@@ -335,14 +537,16 @@ export interface components {
          * @description Implied vol from a unit price. ``market.vol`` is ignored.
          */
         ImpliedVolRequest: {
-            instrument: components["schemas"]["EuropeanOptionIn"];
+            /** Instrument */
+            instrument: components["schemas"]["EuropeanOptionIn"] | components["schemas"]["AmericanOptionIn"] | components["schemas"]["DigitalOptionIn"];
             market: components["schemas"]["MarketIn"];
             /**
              * @default {
+             *       "dividend_treatment": "escrowed",
              *       "type": "bsm"
              *     }
              */
-            model: components["schemas"]["ModelIn"];
+            model?: components["schemas"]["ModelIn"];
             /**
              * @default {
              *       "bumps": {
@@ -351,13 +555,33 @@ export interface components {
              *         "time_days": 1,
              *         "vol_abs": 0.001
              *       },
+             *       "digital": {
+             *         "spread_width_rel": 0.01
+             *       },
              *       "force_bump_greeks": false,
              *       "implied_vol": {
              *         "max_iterations": 2
+             *       },
+             *       "pde": {
+             *         "n_std": 5,
+             *         "penalty": 100000000,
+             *         "penalty_max_iter": 25,
+             *         "penalty_tol": 1e-12,
+             *         "rannacher_steps": 2,
+             *         "space_nodes": 800,
+             *         "time_steps": 200
+             *       },
+             *       "scenario": {
+             *         "pde_space_nodes": 200,
+             *         "pde_time_steps": 100,
+             *         "tree_steps": 101
+             *       },
+             *       "tree": {
+             *         "steps": 401
              *       }
              *     }
              */
-            settings: components["schemas"]["SettingsIn"];
+            settings?: components["schemas"]["SettingsIn"];
             /**
              * Target Price
              * @description Unit price, currency
@@ -390,33 +614,38 @@ export interface components {
              * Max Iterations
              * @default 2
              */
-            max_iterations: number;
+            max_iterations?: number;
         };
         /**
          * MarketIn
-         * @description Flat market: continuously compounded rates, ACT/365F.
+         * @description Market snapshot. Each rate is a flat decimal or a pillar curve.
          *
          *     Under Black-76, ``spot`` is the forward (futures) price for the option expiry and the
-         *     dividend yield and borrow spread are ignored.
+         *     dividend yield, borrow and discrete dividends are ignored.
          */
         MarketIn: {
             /**
              * Borrow
-             * @description Repo/borrow spread, continuous, decimal
+             * @description Repo/borrow spread(s), continuous
              * @default 0
              */
-            borrow: number;
+            borrow?: number | components["schemas"]["CurveIn"];
             /**
              * Dividend Yield
-             * @description Continuous dividend yield, decimal
+             * @description Continuous dividend yield(s)
              * @default 0
              */
-            dividend_yield: number;
+            dividend_yield?: number | components["schemas"]["CurveIn"];
+            /**
+             * Dividends
+             * @default []
+             */
+            dividends?: components["schemas"]["DividendIn"][];
             /**
              * Rate
-             * @description Discount zero rate, continuous, decimal
+             * @description Discount zero rate(s), continuous
              */
-            rate: number;
+            rate: number | components["schemas"]["CurveIn"];
             /** Spot */
             spot: number;
             /**
@@ -441,10 +670,48 @@ export interface components {
             version: string;
         };
         /**
+         * MethodComparison
+         * @description One method's result, or why it cannot price this product.
+         */
+        MethodComparison: {
+            /**
+             * Convergence
+             * @default []
+             */
+            convergence?: components["schemas"]["ConvergencePointOut"][];
+            /** Error */
+            error?: string | null;
+            /**
+             * Greeks
+             * @description Cash greeks
+             */
+            greeks?: components["schemas"]["GreekOut"][] | null;
+            /** Label */
+            label: string;
+            /** Method */
+            method: string;
+            /**
+             * Price
+             * @description Unit price, currency
+             */
+            price?: number | null;
+            /**
+             * Resolution
+             * @description Tree steps or PDE space nodes
+             */
+            resolution?: number | null;
+            /** Runtime Ms */
+            runtime_ms?: number | null;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
          * MethodOut
-         * @description A registered pricing method.
+         * @description A registered pricing method and the products it supports.
          */
         MethodOut: {
+            /** Instruments */
+            instruments: ("european" | "american" | "digital")[];
             /** Label */
             label: string;
             /** Name */
@@ -456,11 +723,16 @@ export interface components {
          */
         ModelIn: {
             /**
+             * @description BSM cash dividends: escrowed (lognormal S − PV) or spot jumps (PDE only)
+             * @default escrowed
+             */
+            dividend_treatment?: components["schemas"]["DividendTreatment"];
+            /**
              * Type
              * @default bsm
              * @enum {string}
              */
-            type: "bsm" | "black76";
+            type?: "bsm" | "black76";
         };
         /**
          * OptionType
@@ -469,23 +741,79 @@ export interface components {
          */
         OptionType: "call" | "put";
         /**
+         * PdeSettingsIn
+         * @description Crank–Nicolson PDE.
+         */
+        PdeSettingsIn: {
+            /**
+             * N Std
+             * @default 5
+             */
+            n_std?: number;
+            /**
+             * Penalty
+             * @default 100000000
+             */
+            penalty?: number;
+            /**
+             * Penalty Max Iter
+             * @default 25
+             */
+            penalty_max_iter?: number;
+            /**
+             * Penalty Tol
+             * @default 1e-12
+             */
+            penalty_tol?: number;
+            /**
+             * Rannacher Steps
+             * @default 2
+             */
+            rannacher_steps?: number;
+            /**
+             * Space Nodes
+             * @default 800
+             */
+            space_nodes?: number;
+            /**
+             * Time Steps
+             * @default 200
+             */
+            time_steps?: number;
+        };
+        /**
+         * PillarIn
+         * @description Continuously compounded zero rate to ``date`` (ACT/365F from the valuation date).
+         */
+        PillarIn: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Rate */
+            rate: number;
+        };
+        /**
          * PriceRequest
          * @description Price one instrument.
          */
         PriceRequest: {
-            instrument: components["schemas"]["EuropeanOptionIn"];
+            /** Instrument */
+            instrument: components["schemas"]["EuropeanOptionIn"] | components["schemas"]["AmericanOptionIn"] | components["schemas"]["DigitalOptionIn"];
             market: components["schemas"]["MarketIn"];
             /**
              * Method
              * @default analytic
              */
-            method: string;
+            method?: string;
             /**
              * @default {
+             *       "dividend_treatment": "escrowed",
              *       "type": "bsm"
              *     }
              */
-            model: components["schemas"]["ModelIn"];
+            model?: components["schemas"]["ModelIn"];
             /**
              * @default {
              *       "bumps": {
@@ -494,13 +822,33 @@ export interface components {
              *         "time_days": 1,
              *         "vol_abs": 0.001
              *       },
+             *       "digital": {
+             *         "spread_width_rel": 0.01
+             *       },
              *       "force_bump_greeks": false,
              *       "implied_vol": {
              *         "max_iterations": 2
+             *       },
+             *       "pde": {
+             *         "n_std": 5,
+             *         "penalty": 100000000,
+             *         "penalty_max_iter": 25,
+             *         "penalty_tol": 1e-12,
+             *         "rannacher_steps": 2,
+             *         "space_nodes": 800,
+             *         "time_steps": 200
+             *       },
+             *       "scenario": {
+             *         "pde_space_nodes": 200,
+             *         "pde_time_steps": 100,
+             *         "tree_steps": 101
+             *       },
+             *       "tree": {
+             *         "steps": 401
              *       }
              *     }
              */
-            settings: components["schemas"]["SettingsIn"];
+            settings?: components["schemas"]["SettingsIn"];
         };
         /**
          * PriceResponse
@@ -512,7 +860,10 @@ export interface components {
             diagnostics: components["schemas"]["DiagnosticsOut"];
             /** Discount Factor */
             discount_factor: number;
-            /** Forward */
+            /**
+             * Forward
+             * @description Model forward to expiry, including discrete dividends
+             */
             forward: number;
             greeks: components["schemas"]["GreeksOut"];
             /**
@@ -552,25 +903,30 @@ export interface components {
              */
             axis: "spot" | "time";
             /**
+             * Greeks
+             * @description Greeks to compute (default all; [] for value only)
+             */
+            greeks?: components["schemas"]["Greek"][] | null;
+            /**
              * Horizons Days
              * @description Spot axis: valuation-date rolls
              * @default [
              *       0
              *     ]
              */
-            horizons_days: number[];
+            horizons_days?: number[];
             /**
              * Points
              * @default 81
              */
-            points: number;
+            points?: number;
             pricing: components["schemas"]["PriceRequest"];
             /**
              * Spot Range Pct
              * @description Spot axis: ±range, %
              * @default 30
              */
-            spot_range_pct: number;
+            spot_range_pct?: number;
             /**
              * Spot Shifts Pct
              * @description Time axis: spot shifts, %
@@ -578,7 +934,7 @@ export interface components {
              *       0
              *     ]
              */
-            spot_shifts_pct: number[];
+            spot_shifts_pct?: number[];
         };
         /**
          * ProfileResponse
@@ -641,6 +997,27 @@ export interface components {
             spot_shift_pct: number;
         };
         /**
+         * ScenarioSettingsIn
+         * @description Numerical-method resolution for charts.
+         */
+        ScenarioSettingsIn: {
+            /**
+             * Pde Space Nodes
+             * @default 200
+             */
+            pde_space_nodes?: number;
+            /**
+             * Pde Time Steps
+             * @default 100
+             */
+            pde_time_steps?: number;
+            /**
+             * Tree Steps
+             * @default 101
+             */
+            tree_steps?: number;
+        };
+        /**
          * SettingsIn
          * @description Numerical settings.
          */
@@ -653,19 +1030,63 @@ export interface components {
              *       "vol_abs": 0.001
              *     }
              */
-            bumps: components["schemas"]["BumpSettingsIn"];
+            bumps?: components["schemas"]["BumpSettingsIn"];
+            /**
+             * @default {
+             *       "spread_width_rel": 0.01
+             *     }
+             */
+            digital?: components["schemas"]["DigitalSettingsIn"];
             /**
              * Force Bump Greeks
              * @description Bump-and-revalue every greek, even where closed forms exist
              * @default false
              */
-            force_bump_greeks: boolean;
+            force_bump_greeks?: boolean;
             /**
              * @default {
              *       "max_iterations": 2
              *     }
              */
-            implied_vol: components["schemas"]["ImpliedVolSettingsIn"];
+            implied_vol?: components["schemas"]["ImpliedVolSettingsIn"];
+            /**
+             * @default {
+             *       "n_std": 5,
+             *       "penalty": 100000000,
+             *       "penalty_max_iter": 25,
+             *       "penalty_tol": 1e-12,
+             *       "rannacher_steps": 2,
+             *       "space_nodes": 800,
+             *       "time_steps": 200
+             *     }
+             */
+            pde?: components["schemas"]["PdeSettingsIn"];
+            /**
+             * @default {
+             *       "pde_space_nodes": 200,
+             *       "pde_time_steps": 100,
+             *       "tree_steps": 101
+             *     }
+             */
+            scenario?: components["schemas"]["ScenarioSettingsIn"];
+            /**
+             * @default {
+             *       "steps": 401
+             *     }
+             */
+            tree?: components["schemas"]["TreeSettingsIn"];
+        };
+        /**
+         * TreeSettingsIn
+         * @description Leisen–Reimer tree.
+         */
+        TreeSettingsIn: {
+            /**
+             * Steps
+             * @description Odd
+             * @default 401
+             */
+            steps?: number;
         };
     };
     responses: never;
@@ -676,6 +1097,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    compare_api_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;

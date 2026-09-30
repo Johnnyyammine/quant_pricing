@@ -16,8 +16,8 @@ from engine.instruments.base import Instrument
 from engine.market.market_data import MarketData
 from engine.methods.base import PricingMethod
 from engine.models.base import Model
-from engine.pricing import price
-from engine.results import Greek, PricingResult
+from engine.pricing import price, price_ladder
+from engine.results import Greek, Greeks, PricingResult
 from engine.risk import bumps
 from engine.settings import PricingSettings
 
@@ -78,19 +78,29 @@ def spot_value_grid(
 ) -> list[list[float]]:
     """Unit values on a ``vol_shifts × spot_shifts`` grid (rows: vol), after rolling ``days``.
 
-    Cells whose shock leaves the market domain (e.g. a negative vol) are ``nan``.
+    Each row is one spot ladder (one solve for grid and lattice methods). Rows whose vol shock
+    leaves the market domain (vol ≤ 0) are ``nan``.
     """
+    multipliers = [1.0 + ds for ds in spot_shifts]
     rows: list[list[float]] = []
     for dv in vol_shifts:
-        row: list[float] = []
-        for ds in spot_shifts:
-            shock = MarketShock(spot_rel=ds, vol_abs=dv, days=days)
-            try:
-                row.append(revalue(instrument, market, model, method, settings, shock).price)
-            except MarketDataError:
-                row.append(math.nan)
-        rows.append(row)
+        try:
+            shocked = MarketShock(vol_abs=dv, days=days).apply(market)
+        except MarketDataError:
+            rows.append([math.nan] * len(multipliers))
+            continue
+        ladder = price_ladder(instrument, shocked, model, method, settings, multipliers, greeks=())
+        rows.append([v for v, _ in ladder])
     return rows
+
+
+@dataclass(frozen=True, slots=True)
+class ProfilePoint:
+    """Unit value and greeks at one scenario point."""
+
+    spot: float
+    value: float
+    greeks: Greeks | None
 
 
 def spot_profile(
@@ -102,13 +112,15 @@ def spot_profile(
     spot_shifts: Sequence[float],
     days: int = 0,
     greeks: Collection[Greek] = tuple(Greek),
-) -> list[tuple[MarketData, PricingResult]]:
-    """Price and greeks across relative spot shifts, after rolling ``days``."""
-    out = []
-    for ds in spot_shifts:
-        shocked = MarketShock(spot_rel=ds, days=days).apply(market)
-        out.append((shocked, price(instrument, shocked, model, method, settings, greeks=greeks)))
-    return out
+) -> list[ProfilePoint]:
+    """Value and greeks across relative spot shifts after rolling ``days`` (one spot ladder)."""
+    rolled = MarketShock(days=days).apply(market)
+    multipliers = [1.0 + ds for ds in spot_shifts]
+    ladder = price_ladder(instrument, rolled, model, method, settings, multipliers, greeks=greeks)
+    return [
+        ProfilePoint(spot=rolled.spot * m, value=v, greeks=g)
+        for m, (v, g) in zip(multipliers, ladder, strict=True)
+    ]
 
 
 def time_profile(
@@ -120,10 +132,13 @@ def time_profile(
     roll_days: Sequence[int],
     spot_shift: float = 0.0,
     greeks: Collection[Greek] = tuple(Greek),
-) -> list[tuple[MarketData, PricingResult]]:
-    """Price and greeks as the valuation date rolls forward, at a fixed relative spot shift."""
+) -> list[ProfilePoint]:
+    """Value and greeks as the valuation date rolls forward, at a fixed relative spot shift."""
     out = []
     for d in roll_days:
-        shocked = MarketShock(spot_rel=spot_shift, days=d).apply(market)
-        out.append((shocked, price(instrument, shocked, model, method, settings, greeks=greeks)))
+        rolled = MarketShock(days=d).apply(market)
+        ((v, g),) = price_ladder(
+            instrument, rolled, model, method, settings, [1.0 + spot_shift], greeks=greeks
+        )
+        out.append(ProfilePoint(spot=rolled.spot * (1.0 + spot_shift), value=v, greeks=g))
     return out

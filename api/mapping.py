@@ -2,22 +2,35 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import math
 
 from api.schemas import (
+    AmericanOptionIn,
     BumpSettingsIn,
+    CurveIn,
     DiagnosticsOut,
+    DigitalOptionIn,
+    DigitalSettingsIn,
     EuropeanOptionIn,
     GreekOut,
     GreeksOut,
     ImpliedVolSettingsIn,
     MarketIn,
     ModelIn,
+    PdeSettingsIn,
     PriceResponse,
+    RateIn,
+    ScenarioSettingsIn,
     SettingsIn,
+    TreeSettingsIn,
 )
-from engine.instruments.vanilla import EuropeanOption
-from engine.market.curves import FlatRateCurve
+from engine.dates import year_fraction
+from engine.errors import MarketDataError
+from engine.instruments.base import Instrument
+from engine.instruments.vanilla import AmericanOption, DigitalOption, EuropeanOption
+from engine.market.curves import FlatRateCurve, RateCurve, ZeroCurve
+from engine.market.dividends import Dividend
 from engine.market.market_data import MarketData
 from engine.market.vol import FlatVolSurface
 from engine.methods.base import PricingMethod
@@ -26,29 +39,72 @@ from engine.models.black76 import Black76
 from engine.models.black_scholes import BlackScholesMerton
 from engine.results import Greek, Greeks, PricingResult
 from engine.risk.units import GreekMode, desk_greeks
-from engine.settings import BumpSettings, ImpliedVolSettings, PricingSettings
+from engine.settings import (
+    BumpSettings,
+    DigitalSettings,
+    ImpliedVolSettings,
+    PdeSettings,
+    PricingSettings,
+    ScenarioSettings,
+    TreeSettings,
+)
 
 
-def to_instrument(x: EuropeanOptionIn) -> EuropeanOption:
+def to_instrument(x: EuropeanOptionIn | AmericanOptionIn | DigitalOptionIn) -> Instrument:
     """Engine instrument from its schema."""
-    return EuropeanOption(
-        option_type=x.option_type,
-        strike=x.strike,
-        expiry=x.expiry,
-        quantity=x.quantity,
-        currency=x.currency,
+    match x:
+        case DigitalOptionIn():
+            return DigitalOption(
+                option_type=x.option_type,
+                strike=x.strike,
+                expiry=x.expiry,
+                payout=x.payout,
+                quantity=x.quantity,
+                currency=x.currency,
+            )
+        case AmericanOptionIn():
+            return AmericanOption(
+                option_type=x.option_type,
+                strike=x.strike,
+                expiry=x.expiry,
+                quantity=x.quantity,
+                currency=x.currency,
+            )
+        case EuropeanOptionIn():
+            return EuropeanOption(
+                option_type=x.option_type,
+                strike=x.strike,
+                expiry=x.expiry,
+                quantity=x.quantity,
+                currency=x.currency,
+            )
+
+
+def to_curve(x: RateIn, valuation_date: dt.date) -> RateCurve:
+    """Flat curve from a number; log-linear zero curve from pillars (dates → ACT/365F)."""
+    if not isinstance(x, CurveIn):
+        return FlatRateCurve(x)
+    pillars = sorted(x.pillars, key=lambda p: p.date)
+    if pillars[0].date <= valuation_date:
+        raise MarketDataError("curve pillars must be after the valuation date")
+    if len({p.date for p in pillars}) != len(pillars):
+        raise MarketDataError("curve pillar dates must be distinct")
+    return ZeroCurve(
+        times=tuple(year_fraction(valuation_date, p.date) for p in pillars),
+        zero_rates=tuple(p.rate for p in pillars),
     )
 
 
 def to_market(x: MarketIn) -> MarketData:
-    """Engine market snapshot from a flat-market schema."""
+    """Engine market snapshot."""
     return MarketData(
         valuation_date=x.valuation_date,
         spot=x.spot,
-        discount=FlatRateCurve(x.rate),
+        discount=to_curve(x.rate, x.valuation_date),
         vol=FlatVolSurface(x.vol),
-        dividend_yield=FlatRateCurve(x.dividend_yield),
-        borrow=FlatRateCurve(x.borrow),
+        dividend_yield=to_curve(x.dividend_yield, x.valuation_date),
+        borrow=to_curve(x.borrow, x.valuation_date),
+        dividends=tuple(Dividend(d.ex_date, d.cash, d.proportional) for d in x.dividends),
     )
 
 
@@ -56,70 +112,90 @@ def to_model(x: ModelIn) -> Model:
     """Engine model from its schema."""
     match x.type:
         case "bsm":
-            return BlackScholesMerton()
+            return BlackScholesMerton(dividend_treatment=x.dividend_treatment)
         case "black76":
             return Black76()
 
 
 def to_settings(x: SettingsIn) -> PricingSettings:
     """Engine settings from their schema."""
-    b = x.bumps
     return PricingSettings(
-        bumps=BumpSettings(
-            spot_rel=b.spot_rel, vol_abs=b.vol_abs, rate_abs=b.rate_abs, time_days=b.time_days
-        ),
-        implied_vol=ImpliedVolSettings(max_iterations=x.implied_vol.max_iterations),
+        bumps=BumpSettings(**x.bumps.model_dump()),
+        implied_vol=ImpliedVolSettings(**x.implied_vol.model_dump()),
         force_bump_greeks=x.force_bump_greeks,
+        tree=TreeSettings(**x.tree.model_dump()),
+        pde=PdeSettings(**x.pde.model_dump()),
+        digital=DigitalSettings(**x.digital.model_dump()),
+        scenario=ScenarioSettings(**x.scenario.model_dump()),
     )
 
 
 def from_settings(s: PricingSettings) -> SettingsIn:
     """Settings schema from engine settings."""
-    b = s.bumps
+    b, t, p, sc = s.bumps, s.tree, s.pde, s.scenario
     return SettingsIn(
         bumps=BumpSettingsIn(
             spot_rel=b.spot_rel, vol_abs=b.vol_abs, rate_abs=b.rate_abs, time_days=b.time_days
         ),
         implied_vol=ImpliedVolSettingsIn(max_iterations=s.implied_vol.max_iterations),
         force_bump_greeks=s.force_bump_greeks,
+        tree=TreeSettingsIn(steps=t.steps),
+        pde=PdeSettingsIn(
+            space_nodes=p.space_nodes,
+            time_steps=p.time_steps,
+            n_std=p.n_std,
+            rannacher_steps=p.rannacher_steps,
+            penalty=p.penalty,
+            penalty_tol=p.penalty_tol,
+            penalty_max_iter=p.penalty_max_iter,
+        ),
+        digital=DigitalSettingsIn(spread_width_rel=s.digital.spread_width_rel),
+        scenario=ScenarioSettingsIn(
+            tree_steps=sc.tree_steps,
+            pde_space_nodes=sc.pde_space_nodes,
+            pde_time_steps=sc.pde_time_steps,
+        ),
     )
 
 
-def greeks_out(greeks: Greeks | None, spot: float, instrument: EuropeanOption) -> GreeksOut:
-    """Greeks in desk units, both modes."""
+def desk_list(
+    greeks: Greeks | None, spot: float, inst: Instrument, mode: GreekMode
+) -> list[GreekOut]:
+    """Greeks in desk units for one mode."""
     if greeks is None:
-        return GreeksOut(pure=[], cash=[])
+        return []
+    return [
+        GreekOut(key=g.greek, value=g.value, unit=g.unit, source=g.source)
+        for g in desk_greeks(greeks, spot, inst.quantity, inst.currency, mode)
+    ]
 
-    def mode(m: GreekMode) -> list[GreekOut]:
-        return [
-            GreekOut(key=g.greek, value=g.value, unit=g.unit, source=g.source)
-            for g in desk_greeks(greeks, spot, instrument.quantity, instrument.currency, m)
-        ]
 
-    return GreeksOut(pure=mode(GreekMode.PURE), cash=mode(GreekMode.CASH))
+def greeks_out(greeks: Greeks | None, spot: float, instrument: Instrument) -> GreeksOut:
+    """Greeks in desk units, both modes."""
+    return GreeksOut(
+        pure=desk_list(greeks, spot, instrument, GreekMode.PURE),
+        cash=desk_list(greeks, spot, instrument, GreekMode.CASH),
+    )
 
 
 def desk_values(
-    greeks: Greeks | None, spot: float, instrument: EuropeanOption, mode: GreekMode
+    greeks: Greeks | None, spot: float, instrument: Instrument, mode: GreekMode
 ) -> dict[Greek, float]:
     """Desk-unit greek values keyed by greek (``nan`` if absent)."""
     if greeks is None:
         return dict.fromkeys(Greek, math.nan)
-    return {
-        g.greek: g.value
-        for g in desk_greeks(greeks, spot, instrument.quantity, instrument.currency, mode)
-    }
+    return {g.key: g.value for g in desk_list(greeks, spot, instrument, mode)}
 
 
 def to_price_response(
     result: PricingResult,
-    instrument: EuropeanOption,
+    instrument: Instrument,
     market: MarketData,
     model: Model,
     method: PricingMethod,
 ) -> PriceResponse:
     """Serialise a pricing result with desk-unit greeks in both modes."""
-    t = market.time_to(instrument.maturity)
+    t = max(market.time_to(instrument.maturity), 0.0)
     d = result.diagnostics
     return PriceResponse(
         currency=instrument.currency,

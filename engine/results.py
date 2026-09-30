@@ -57,7 +57,8 @@ class Diagnostics:
     Attributes:
         method: Pricing-method identifier.
         model: Model identifier.
-        runtime_ms: Wall-clock time for price and greeks, milliseconds.
+        runtime_ms: CPU time of the pricing thread for price and greeks, milliseconds (not
+            inflated by concurrent work in the same process).
         revaluations: Number of full revaluations performed (1 + bump revaluations).
         settings: Numerical settings used.
         details: Method-specific diagnostics (MC std error, grid size, iterations, ...).

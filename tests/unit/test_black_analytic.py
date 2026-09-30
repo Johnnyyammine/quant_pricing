@@ -3,7 +3,7 @@
 import datetime as dt
 import math
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 import pytest
 import QuantLib as ql  # noqa: N813
@@ -11,26 +11,45 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from engine.instruments.vanilla import EuropeanOption, OptionType
-from engine.market.curves import FlatRateCurve
+from engine.market.curves import FlatRateCurve, ZeroCurve
 from engine.market.market_data import MarketData
 from engine.market.vol import FlatVolSurface
 from engine.methods.analytic import AnalyticBlack
-from engine.methods.black_formulas import BlackInputs, CarryModel, black_greeks, black_price
+from engine.methods.black_formulas import BlackInputs, vanilla_greeks, vanilla_price
 from engine.models.black76 import Black76
 from engine.models.black_scholes import BlackScholesMerton
 from engine.pricing import price
 from engine.results import Greek, GreekSource
-from engine.settings import BumpSettings, PricingSettings
+from engine.settings import PricingSettings
+from tests.greek_checks import assert_greeks_match_bumps
 
 VAL = dt.date(2026, 1, 2)
 EPS = sys.float_info.epsilon
 BSM, B76, METHOD = BlackScholesMerton(), Black76(), AnalyticBlack()
 
 
-def gbs(x, k, t, sigma, r, carry, omega, model=CarryModel.SPOT):
-    p = BlackInputs(x, k, t, sigma, r, carry, omega, model)
-    v = black_price(p)
-    return v, black_greeks(p, v)
+SPOT, FORWARD = "spot", "forward"
+
+
+def gbs(x, k, t, sigma, r, carry, omega, model=SPOT):
+    """Generalised BS in Haug's cost-of-carry notation, via the forward-based kernel."""
+    f = x * math.exp(carry * t)
+    spot_based = model == SPOT
+    p = BlackInputs(
+        forward=f,
+        strike=k,
+        t=t,
+        sigma=sigma,
+        discount=math.exp(-r * t),
+        omega=omega,
+        d_spot=math.exp(carry * t),
+        d_rate=t * f if spot_based else 0.0,
+        d_yield=-t * f if spot_based else 0.0,
+        rate=r,
+        carry=carry,
+    )
+    v = vanilla_price(p)
+    return v, vanilla_greeks(p, v)
 
 
 # ------------------------------------------------------------------ published reference values
@@ -50,7 +69,7 @@ def test_haug_merton73_put():  # Haug 1.1.2: S=100, X=95, T=0.5, r=10%, q=5%, σ
 
 def test_haug_black76():  # Haug 1.1.3: F=19, X=19, T=0.75, r=10%, σ=28% → call = put = 1.7011
     for omega in (1, -1):
-        v, _ = gbs(19, 19, 0.75, 0.28, 0.10, 0.0, omega, CarryModel.FORWARD)
+        v, _ = gbs(19, 19, 0.75, 0.28, 0.10, 0.0, omega, FORWARD)
         assert v == pytest.approx(1.7011, abs=5e-5)
 
 
@@ -223,9 +242,9 @@ def test_monotone_in_vol_and_strike_convex_in_strike(p, bump):
 def test_monotone_in_total_variance_at_fixed_forward(p, factor):
     x, t = p["spot"], p["days"] / 365
     k = x * p["moneyness"]
-    v1, _ = gbs(x, k, t, p["sigma"], p["r"], 0.0, p["omega"], CarryModel.FORWARD)
+    v1, _ = gbs(x, k, t, p["sigma"], p["r"], 0.0, p["omega"], FORWARD)
     sigma2 = p["sigma"] * math.sqrt(factor)
-    v2, _ = gbs(x, k, t, sigma2, p["r"], 0.0, p["omega"], CarryModel.FORWARD)
+    v2, _ = gbs(x, k, t, sigma2, p["r"], 0.0, p["omega"], FORWARD)
     assert v2 >= v1 - 1e-13 * x
 
 
@@ -250,57 +269,7 @@ def test_monotone_in_total_variance_at_fixed_forward(p, factor):
 def test_analytic_greeks_match_richardson_bumps(p, model):
     """Bump greeks at h and h/2, Richardson-extrapolated to O(h⁴), against closed forms."""
     opt, mkt = _option(p), _market(p["spot"], p["r"], p["q"], p["b"], p["sigma"])
-    analytic = price(opt, mkt, model, METHOD).greeks
-    h = BumpSettings(spot_rel=2e-3, vol_abs=2e-3, rate_abs=2e-4, time_days=1)
-    h2 = BumpSettings(spot_rel=1e-3, vol_abs=1e-3, rate_abs=1e-4, time_days=1)
-    g1 = price(opt, mkt, model, METHOD, PricingSettings(bumps=h, force_bump_greeks=True)).greeks
-    g2 = price(opt, mkt, model, METHOD, PricingSettings(bumps=h2, force_bump_greeks=True)).greeks
-    assert analytic is not None
-    assert g1 is not None
-    assert g2 is not None
-    # Round-off floor of each stencil at the smaller bumps: ε·(|V| + S) / (stencil denominator).
-    v = price(opt, mkt, model, METHOD, greeks=()).price
-    hs, hv, hr = h2.spot_rel * p["spot"], h2.vol_abs, h2.rate_abs
-    denominator = {
-        Greek.DELTA: hs,
-        Greek.GAMMA: hs * hs,
-        Greek.VEGA: hv,
-        Greek.VOLGA: hv * hv,
-        Greek.VANNA: hs * hv,
-        Greek.RHO: hr,
-        Greek.PHI: hr,
-    }
-    for g, den in denominator.items():
-        richardson = (4 * g2[g] - g1[g]) / 3
-        # Richardson leaves an O(h⁴) residual, which must be small next to the O(h²) correction
-        # it removed (|g1 − g2|); a formula error would not shrink with h. The 1e-6 relative floor
-        # covers points where the h² coefficient vanishes by coincidence but h⁴ does not.
-        rounding = 256 * EPS * (abs(v) + p["spot"]) / den
-        tol = 1e-6 * abs(analytic[g]) + 0.05 * abs(g1[g] - g2[g]) + rounding
-        assert abs(richardson - analytic[g]) <= tol, g
-    # Time: Richardson over 1-day and 2-day rolls, with the same self-calibrating tolerance. The
-    # spot bump inside charm is reduced so its own O(h_S²) error does not dominate.
-    fine_spot = 1e-4
-    t1, t2 = (
-        price(
-            opt,
-            mkt,
-            model,
-            METHOD,
-            PricingSettings(
-                bumps=BumpSettings(spot_rel=fine_spot, time_days=days), force_bump_greeks=True
-            ),
-        ).greeks
-        for days in (1, 2)
-    )
-    assert t1 is not None
-    assert t2 is not None
-    h_t = 1 / 365
-    for g, den in ((Greek.THETA, h_t), (Greek.CHARM, h_t * fine_spot * p["spot"])):
-        richardson = (4 * t1[g] - t2[g]) / 3
-        rounding = 256 * EPS * (abs(v) + p["spot"]) / den
-        tol = 1e-6 * abs(analytic[g]) + 0.05 * abs(t1[g] - t2[g]) + rounding
-        assert abs(richardson - analytic[g]) <= tol, g
+    assert_greeks_match_bumps(opt, mkt, model, METHOD)
 
 
 # ------------------------------------------------------------------ edge cases and wiring
@@ -321,25 +290,8 @@ def test_diagnostics_report_black_quantities(market, call):
     assert d["d2"] == pytest.approx(d["d1"] - d["stdev"])
 
 
-@dataclass(frozen=True)
-class SlopedCurve:
-    """Upward-sloping zero curve z(t) = a + c·t (not time-homogeneous)."""
-
-    a: float
-    c: float
-
-    def df(self, t: float) -> float:
-        return math.exp(-self.zero_rate(t) * t)
-
-    def zero_rate(self, t: float) -> float:
-        return self.a + self.c * t
-
-    def shifted(self, dz: float) -> "SlopedCurve":
-        return SlopedCurve(self.a + dz, self.c)
-
-
 def test_theta_and_charm_fall_back_to_bumps_for_non_flat_curves(market, call):
-    sloped = replace(market, discount=SlopedCurve(0.02, 0.005))
+    sloped = replace(market, discount=ZeroCurve((0.5, 1.0, 2.0), (0.02, 0.025, 0.03)))
     g = price(call, sloped, BSM, METHOD).greeks
     assert g is not None
     assert g.sources[Greek.THETA] is GreekSource.BUMP

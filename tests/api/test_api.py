@@ -36,7 +36,7 @@ def test_health(client):
 
 def test_meta_lists_methods(client):
     names = [m["name"] for m in client.get("/api/meta").json()["methods"]]
-    assert names == ["analytic"]
+    assert names == ["analytic", "lr_tree", "cn_pde"]
 
 
 def test_price_round_trip(client):
@@ -176,3 +176,118 @@ def test_implied_vol_below_intrinsic_is_422(client):
     r = client.post("/api/implied-vol", json={**REQUEST, "target_price": 1.0})
     assert r.status_code == 422
     assert "intrinsic" in r.json()["detail"]
+
+
+# ------------------------------------------------------------------ Phase 2
+
+
+def _with(section, **fields):
+    req = {k: dict(v) for k, v in REQUEST.items()}
+    req[section].update(fields)
+    return req
+
+
+AMERICAN = _with("instrument", type="american", option_type="put", strike=105.0)
+
+
+@pytest.mark.parametrize("method", ["lr_tree", "cn_pde"])
+def test_american_prices_with_numerical_methods(client, method):
+    body = client.post("/api/price", json={**AMERICAN, "method": method}).json()
+    euro = client.post(
+        "/api/price", json=_with("instrument", option_type="put", strike=105.0)
+    ).json()
+    assert body["price"] > euro["price"]  # early-exercise premium on a put with r > q
+    assert {g["key"] for g in body["greeks"]["cash"]} == {g["key"] for g in euro["greeks"]["cash"]}
+
+
+def test_analytic_rejects_american(client):
+    r = client.post("/api/price", json=AMERICAN)
+    assert r.status_code == 422
+    assert "does not support" in r.json()["detail"]
+
+
+def test_digital_reports_smoothing(client):
+    req = _with("instrument", type="digital", payout=2.0)
+    body = client.post("/api/price", json=req).json()
+    assert body["diagnostics"]["details"]["greeks_from"] == "call-spread replica"
+    assert body["diagnostics"]["settings"]["digital"]["spread_width_rel"] == 0.01
+
+
+def test_curves_and_dividends(client):
+    req = _with(
+        "market",
+        rate={
+            "pillars": [{"date": "2026-07-02", "rate": 0.02}, {"date": "2028-01-02", "rate": 0.035}]
+        },
+        dividends=[
+            {"ex_date": "2026-06-15", "cash": 1.5},
+            {"ex_date": "2026-11-15", "proportional": 0.01},
+        ],
+    )
+    body = client.post("/api/price", json=req).json()
+    flat = client.post("/api/price", json=REQUEST).json()
+    assert body["forward"] < flat["forward"]  # dividends lower the forward
+    thetas = {g["key"]: g["source"] for g in body["greeks"]["cash"]}
+    assert thetas["theta"] == "bump"  # not time-homogeneous
+
+
+def test_curve_pillar_before_valuation_is_422(client):
+    req = _with("market", rate={"pillars": [{"date": "2025-01-01", "rate": 0.02}]})
+    r = client.post("/api/price", json=req)
+    assert r.status_code == 422
+    assert "after the valuation date" in r.json()["detail"]
+
+
+def test_spot_jump_cash_dividends_need_pde(client):
+    req = {
+        **_with("market", dividends=[{"ex_date": "2026-06-15", "cash": 1.5}]),
+        "model": {"type": "bsm", "dividend_treatment": "spot"},
+    }
+    assert client.post("/api/price", json=req).status_code == 422
+    assert client.post("/api/price", json={**req, "method": "cn_pde"}).status_code == 200
+
+
+def test_profile_greek_subset(client):
+    req = {
+        "pricing": {**AMERICAN, "method": "cn_pde"},
+        "axis": "spot",
+        "points": 11,
+        "greeks": ["gamma"],
+    }
+    body = client.post("/api/profile", json=req).json()
+    assert list(body["series"][0]["greeks"]["cash"]) == ["gamma"]
+
+
+def test_meta_support_matrix(client):
+    methods = {m["name"]: m["instruments"] for m in client.get("/api/meta").json()["methods"]}
+    assert methods == {
+        "analytic": ["european", "digital"],
+        "lr_tree": ["european", "american"],
+        "cn_pde": ["european", "american", "digital"],
+    }
+
+
+def test_compare_american(client):
+    body = client.post("/api/compare", json={"pricing": AMERICAN}).json()
+    rows = {m["method"]: m for m in body["methods"]}
+    assert not rows["analytic"]["supported"]
+    tree, pde = rows["lr_tree"], rows["cn_pde"]
+    assert tree["price"] == pytest.approx(pde["price"], abs=5e-3)
+    assert body["european_price"] < tree["price"]
+    assert len(tree["convergence"]) >= 5
+    assert tree["resolution"] == 401
+    assert body["boundary"]["days"]
+    spots = [s for s in body["boundary"]["spot"] if s is not None]
+    assert spots
+    assert all(s < 105.0 for s in spots)
+
+
+def test_settings_round_trip(client):
+    settings = {"tree": {"steps": 201}, "pde": {"space_nodes": 300, "time_steps": 100}}
+    body = client.post(
+        "/api/price", json={**AMERICAN, "method": "cn_pde", "settings": settings}
+    ).json()
+    echoed = body["diagnostics"]["settings"]
+    assert echoed["tree"]["steps"] == 201
+    assert echoed["pde"]["space_nodes"] == 300
+    assert body["diagnostics"]["details"]["space_nodes"] == 300

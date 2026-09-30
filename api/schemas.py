@@ -3,16 +3,28 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from engine.instruments.vanilla import OptionType
+from engine.models.black_scholes import DividendTreatment
 from engine.results import Greek, GreekSource
-from engine.settings import BumpSettings, ImpliedVolSettings
+from engine.settings import (
+    BumpSettings,
+    DigitalSettings,
+    ImpliedVolSettings,
+    PdeSettings,
+    ScenarioSettings,
+    TreeSettings,
+)
 
-_BUMP_DEFAULTS = BumpSettings()
-_IV_DEFAULTS = ImpliedVolSettings()
+_BUMP = BumpSettings()
+_IV = ImpliedVolSettings()
+_TREE = TreeSettings()
+_PDE = PdeSettings()
+_DIGITAL = DigitalSettings()
+_SCENARIO = ScenarioSettings()
 MAX_GRID_POINTS = 201
 
 
@@ -20,13 +32,10 @@ class _Schema(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-# ------------------------------------------------------------------ requests
+# ------------------------------------------------------------------ instruments
 
 
-class EuropeanOptionIn(_Schema):
-    """European call or put."""
-
-    type: Literal["european"] = "european"
+class _OptionFields(_Schema):
     option_type: OptionType
     strike: float = Field(gt=0, description="Strike, in price units")
     expiry: dt.date
@@ -34,18 +43,73 @@ class EuropeanOptionIn(_Schema):
     currency: str = Field(default="EUR", min_length=3, max_length=3)
 
 
+class EuropeanOptionIn(_OptionFields):
+    """European call or put."""
+
+    type: Literal["european"] = "european"
+
+
+class AmericanOptionIn(_OptionFields):
+    """American call or put (exercisable any day up to expiry)."""
+
+    type: Literal["american"]
+
+
+class DigitalOptionIn(_OptionFields):
+    """Cash-or-nothing digital paying ``payout`` per unit if in the money at expiry."""
+
+    type: Literal["digital"]
+    payout: float = Field(default=1.0, gt=0, description="Cash per unit, currency")
+
+
+InstrumentIn = Annotated[
+    EuropeanOptionIn | AmericanOptionIn | DigitalOptionIn, Field(discriminator="type")
+]
+
+
+# ------------------------------------------------------------------ market
+
+
+class PillarIn(_Schema):
+    """Continuously compounded zero rate to ``date`` (ACT/365F from the valuation date)."""
+
+    date: dt.date
+    rate: float
+
+
+class CurveIn(_Schema):
+    """Zero curve with log-linear discount factors between pillars.
+
+    Flat before the first pillar; the last forward is extended beyond the last.
+    """
+
+    pillars: list[PillarIn] = Field(min_length=1)
+
+
+RateIn = float | CurveIn
+
+
+class DividendIn(_Schema):
+    """Discrete dividend: ``S → S·(1 − proportional) − cash`` at the ex-date open."""
+
+    ex_date: dt.date
+    cash: float = Field(default=0.0, ge=0, description="Cash per share, currency")
+    proportional: float = Field(default=0.0, ge=0, lt=1, description="Fraction of spot")
+
+
 class MarketIn(_Schema):
-    """Flat market: continuously compounded rates, ACT/365F.
+    """Market snapshot. Each rate is a flat decimal or a pillar curve.
 
     Under Black-76, ``spot`` is the forward (futures) price for the option expiry and the
-    dividend yield and borrow spread are ignored.
+    dividend yield, borrow and discrete dividends are ignored.
     """
 
     valuation_date: dt.date
     spot: float = Field(gt=0)
-    rate: float = Field(description="Discount zero rate, continuous, decimal")
-    dividend_yield: float = Field(default=0.0, description="Continuous dividend yield, decimal")
-    borrow: float = Field(default=0.0, description="Repo/borrow spread, continuous, decimal")
+    rate: RateIn = Field(description="Discount zero rate(s), continuous")
+    dividend_yield: RateIn = Field(default=0.0, description="Continuous dividend yield(s)")
+    borrow: RateIn = Field(default=0.0, description="Repo/borrow spread(s), continuous")
+    dividends: list[DividendIn] = Field(default=[], max_length=100)
     vol: float = Field(gt=0, le=5, description="Implied volatility, decimal")
 
 
@@ -53,21 +117,60 @@ class ModelIn(_Schema):
     """Model selection."""
 
     type: Literal["bsm", "black76"] = "bsm"
+    dividend_treatment: DividendTreatment = Field(
+        default=DividendTreatment.ESCROWED,
+        description="BSM cash dividends: escrowed (lognormal S − PV) or spot jumps (PDE only)",
+    )
+
+
+# ------------------------------------------------------------------ settings
 
 
 class BumpSettingsIn(_Schema):
     """Bump sizes for bump-and-revalue greeks."""
 
-    spot_rel: float = Field(default=_BUMP_DEFAULTS.spot_rel, gt=0, le=0.1)
-    vol_abs: float = Field(default=_BUMP_DEFAULTS.vol_abs, gt=0, le=0.05)
-    rate_abs: float = Field(default=_BUMP_DEFAULTS.rate_abs, gt=0, le=0.01)
-    time_days: int = Field(default=_BUMP_DEFAULTS.time_days, ge=1, le=30)
+    spot_rel: float = Field(default=_BUMP.spot_rel, gt=0, le=0.1)
+    vol_abs: float = Field(default=_BUMP.vol_abs, gt=0, le=0.05)
+    rate_abs: float = Field(default=_BUMP.rate_abs, gt=0, le=0.01)
+    time_days: int = Field(default=_BUMP.time_days, ge=1, le=30)
 
 
 class ImpliedVolSettingsIn(_Schema):
     """Implied-vol solver settings."""
 
-    max_iterations: int = Field(default=_IV_DEFAULTS.max_iterations, ge=1, le=10)
+    max_iterations: int = Field(default=_IV.max_iterations, ge=1, le=10)
+
+
+class TreeSettingsIn(_Schema):
+    """Leisen–Reimer tree."""
+
+    steps: int = Field(default=_TREE.steps, ge=3, le=20001, description="Odd")
+
+
+class PdeSettingsIn(_Schema):
+    """Crank–Nicolson PDE."""
+
+    space_nodes: int = Field(default=_PDE.space_nodes, ge=20, le=20000)
+    time_steps: int = Field(default=_PDE.time_steps, ge=4, le=20000)
+    n_std: float = Field(default=_PDE.n_std, gt=0, le=20)
+    rannacher_steps: int = Field(default=_PDE.rannacher_steps, ge=0, le=100)
+    penalty: float = Field(default=_PDE.penalty, gt=0)
+    penalty_tol: float = Field(default=_PDE.penalty_tol, gt=0)
+    penalty_max_iter: int = Field(default=_PDE.penalty_max_iter, ge=1, le=1000)
+
+
+class DigitalSettingsIn(_Schema):
+    """Digital greek smoothing."""
+
+    spread_width_rel: float = Field(default=_DIGITAL.spread_width_rel, ge=0, lt=0.5)
+
+
+class ScenarioSettingsIn(_Schema):
+    """Numerical-method resolution for charts."""
+
+    tree_steps: int = Field(default=_SCENARIO.tree_steps, ge=3, le=20001)
+    pde_space_nodes: int = Field(default=_SCENARIO.pde_space_nodes, ge=20, le=20000)
+    pde_time_steps: int = Field(default=_SCENARIO.pde_time_steps, ge=4, le=20000)
 
 
 class SettingsIn(_Schema):
@@ -78,12 +181,19 @@ class SettingsIn(_Schema):
     force_bump_greeks: bool = Field(
         default=False, description="Bump-and-revalue every greek, even where closed forms exist"
     )
+    tree: TreeSettingsIn = TreeSettingsIn()
+    pde: PdeSettingsIn = PdeSettingsIn()
+    digital: DigitalSettingsIn = DigitalSettingsIn()
+    scenario: ScenarioSettingsIn = ScenarioSettingsIn()
+
+
+# ------------------------------------------------------------------ requests
 
 
 class PriceRequest(_Schema):
     """Price one instrument."""
 
-    instrument: EuropeanOptionIn
+    instrument: InstrumentIn
     market: MarketIn
     model: ModelIn = ModelIn()
     method: str = "analytic"
@@ -103,6 +213,9 @@ class ProfileRequest(_Schema):
     spot_shifts_pct: list[float] = Field(
         default=[0.0], min_length=1, max_length=6, description="Time axis: spot shifts, %"
     )
+    greeks: list[Greek] | None = Field(
+        default=None, description="Greeks to compute (default all; [] for value only)"
+    )
 
 
 class HeatmapRequest(_Schema):
@@ -119,11 +232,18 @@ class HeatmapRequest(_Schema):
 class ImpliedVolRequest(_Schema):
     """Implied vol from a unit price. ``market.vol`` is ignored."""
 
-    instrument: EuropeanOptionIn
+    instrument: InstrumentIn
     market: MarketIn
     model: ModelIn = ModelIn()
     target_price: float = Field(gt=0, description="Unit price, currency")
     settings: SettingsIn = SettingsIn()
+
+
+class CompareRequest(_Schema):
+    """The same product under every registered method."""
+
+    pricing: PriceRequest
+    convergence: bool = True
 
 
 # ------------------------------------------------------------------ responses
@@ -151,7 +271,7 @@ class DiagnosticsOut(_Schema):
     method: str
     method_label: str
     model: str
-    runtime_ms: float = Field(description="Engine wall-clock time for price and greeks, ms")
+    runtime_ms: float = Field(description="Engine CPU time for price and greeks, ms")
     revaluations: int
     settings: SettingsIn
     details: dict[str, float | int | str]
@@ -166,7 +286,7 @@ class PriceResponse(_Schema):
     position_value: float = Field(description="quantity × unit price, currency")
     pct_notional: float = Field(description="100 × unit price / spot, %")
     notional: float = Field(description="quantity × spot, currency")
-    forward: float
+    forward: float = Field(description="Model forward to expiry, including discrete dividends")
     discount_factor: float
     time_to_expiry: float = Field(description="ACT/365F year fraction")
     greeks: GreeksOut
@@ -218,11 +338,52 @@ class ImpliedVolResponse(_Schema):
     time_to_expiry: float
 
 
+class ConvergencePointOut(_Schema):
+    """Price at one resolution."""
+
+    resolution: int
+    price: float = Field(description="Unit price, currency")
+    runtime_ms: float
+
+
+class MethodComparison(_Schema):
+    """One method's result, or why it cannot price this product."""
+
+    method: str
+    label: str
+    supported: bool
+    error: str | None = None
+    price: float | None = Field(default=None, description="Unit price, currency")
+    runtime_ms: float | None = None
+    greeks: list[GreekOut] | None = Field(default=None, description="Cash greeks")
+    resolution: int | None = Field(default=None, description="Tree steps or PDE space nodes")
+    convergence: list[ConvergencePointOut] = []
+
+
+class ExerciseBoundary(_Schema):
+    """PDE early-exercise boundary: exercise when spot is beyond ``spot`` at ``days``."""
+
+    days: list[float] = Field(description="Days from the valuation date")
+    spot: list[float | None] = Field(description="Critical spot S*; null where not exercised")
+
+
+class CompareResponse(_Schema):
+    """Methods side by side."""
+
+    currency: str
+    methods: list[MethodComparison]
+    european_price: float | None = Field(
+        default=None, description="Same contract with European exercise (unit, closed form)"
+    )
+    boundary: ExerciseBoundary | None = None
+
+
 class MethodOut(_Schema):
-    """A registered pricing method."""
+    """A registered pricing method and the products it supports."""
 
     name: str
     label: str
+    instruments: list[Literal["european", "american", "digital"]]
 
 
 class MetaResponse(_Schema):

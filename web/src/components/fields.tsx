@@ -56,9 +56,26 @@ const boxBase =
  * Numeric input. Commits on every valid keystroke (the pricer is debounced downstream).
  * ↑/↓ nudge by `step`; with Shift ×10, with Alt ×0.1. Esc reverts the draft.
  */
-export function NumericField({
+interface NumberInputProps {
+  id?: string;
+  ariaLabel?: string;
+  value: number;
+  onChange: (v: number) => void;
+  step: number;
+  dp: number;
+  unit?: string | undefined;
+  min?: number | undefined;
+  max?: number | undefined;
+  disabled?: boolean;
+}
+
+/**
+ * Numeric input box. Commits on every valid keystroke (the pricer is debounced downstream).
+ * ↑/↓ nudge by `step`; with Shift ×10, with Alt ×0.1. Esc reverts the draft.
+ */
+export function NumberInput({
   id,
-  label,
+  ariaLabel,
   value,
   onChange,
   step,
@@ -66,21 +83,8 @@ export function NumericField({
   unit,
   min,
   max,
-  help,
   disabled = false,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  step: number;
-  dp: number;
-  unit?: string;
-  min?: number;
-  max?: number;
-  help?: FieldHelp;
-  disabled?: boolean;
-}) {
+}: NumberInputProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const inBounds = (x: number) => (min === undefined || x >= min) && (max === undefined || x <= max);
   const parsed = draft === null ? value : parseNumber(draft);
@@ -96,37 +100,47 @@ export function NumericField({
       if (max !== undefined) next = Math.min(max, next);
       onChange(next);
       setDraft(null);
-    } else if (e.key === "Escape") {
-      setDraft(null);
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Escape" || e.key === "Enter") {
       setDraft(null);
     }
   };
 
   return (
-    <FieldRow id={id} label={label} help={help} unit={unit}>
-      <div className={`${boxBase} ${invalid ? "border-neg" : "border-line"} ${disabled ? "opacity-45" : ""}`}>
-        <input
-          id={id}
-          disabled={disabled}
-          inputMode="decimal"
-          autoComplete="off"
-          spellCheck={false}
-          aria-invalid={invalid}
-          value={draft ?? formatNumber(value, dp, { group: false })}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            const x = parseNumber(e.target.value);
-            if (x !== null && inBounds(x)) onChange(x);
-          }}
-          onBlur={() => {
-            setDraft(null);
-          }}
-          onKeyDown={onKey}
-          className="num h-full min-w-0 flex-1 bg-transparent pl-2 text-[12.5px] text-fg outline-none"
-        />
-        {unit && <span className="pl-1.5 text-[11px] whitespace-nowrap text-fg-faint">{unit}</span>}
-      </div>
+    <div className={`${boxBase} ${invalid ? "border-neg" : "border-line"} ${disabled ? "opacity-45" : ""}`}>
+      <input
+        {...(id ? { id } : {})}
+        {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
+        disabled={disabled}
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
+        aria-invalid={invalid}
+        value={draft ?? formatNumber(value, dp, { group: false })}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const x = parseNumber(e.target.value);
+          if (x !== null && inBounds(x)) onChange(x);
+        }}
+        onBlur={() => {
+          setDraft(null);
+        }}
+        onKeyDown={onKey}
+        className="num h-full min-w-0 flex-1 bg-transparent pl-2 text-[12.5px] text-fg outline-none"
+      />
+      {unit && <span className="pl-1.5 text-[11px] whitespace-nowrap text-fg-faint">{unit}</span>}
+    </div>
+  );
+}
+
+export function NumericField({
+  id,
+  label,
+  help,
+  ...input
+}: NumberInputProps & { id: string; label: string; help?: FieldHelp }) {
+  return (
+    <FieldRow id={id} label={label} help={help} unit={input.unit}>
+      <NumberInput id={id} {...input} />
     </FieldRow>
   );
 }
@@ -199,6 +213,8 @@ export function SelectField<T extends string>({
     </FieldRow>
   );
 }
+
+export { FieldRow, inputBase };
 
 export function ControlRow({ label, children }: { label: string; children: ReactNode }) {
   return (

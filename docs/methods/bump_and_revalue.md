@@ -29,8 +29,11 @@ charm  = [Δ(t+h_t) − Δ(t−h_t)] / 2h_t
 - **Near maturity:** if the instrument matures within `h_t`, Θ and charm switch to a backward
   one-sided difference (O(h)) so no roll steps past maturity, and a warning is attached to the
   result.
-- **Revaluation cache:** revaluations are cached by stencil point, so the full set costs 19 prices
-  (base plus 18 bumped markets), not 23.
+- **Spot ladders:** stencil points are grouped by their non-spot bump (vol, rate, yield, time). Each
+  group is one call to `PricingMethod.evaluate_ladder(market, spot multipliers)`:
+  - All nine greeks need 19 stencil points, but only nine market revaluations.
+  - A PDE shares one solve across all spots in a group, and the tree vectorises them.
+  - Profiles evaluate every spot of every stencil in the same nine calls.
 
 ## Choosing bump sizes
 

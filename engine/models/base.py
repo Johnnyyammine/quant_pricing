@@ -6,7 +6,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import ClassVar
 
-from engine.market.market_data import MarketData
+from engine.market.market_data import ForwardSensitivities, MarketData
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,3 +18,7 @@ class Model(ABC):
     def forward(self, market: MarketData, t: float) -> float:
         """Forward of the modelled underlying for expiry ``t``. Default: the market forward."""
         return market.forward(t)
+
+    def forward_sensitivities(self, market: MarketData, t: float) -> ForwardSensitivities:
+        """Forward and its derivatives to spot, rates and yield. Default: the market's."""
+        return market.forward_sensitivities(t)

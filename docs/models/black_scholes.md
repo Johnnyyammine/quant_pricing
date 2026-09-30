@@ -13,6 +13,31 @@ Code: `engine/models/black_scholes.py`, `engine/models/black76.py`,
 
 In both models `σ` is read from the vol surface at the option's strike and expiry.
 
+## Forward-based formulas (Phase 2)
+
+Since Phase 2 the kernel takes the model's forward `F(0,T)` and its sensitivities
+`F_S = ∂F/∂S`, `F_r = ∂F/∂r`, `F_q = ∂F/∂q`. See
+[`curves_and_dividends.md`](curves_and_dividends.md). One set of formulas then covers:
+- flat BSM,
+- term-structure curves,
+- escrowed discrete dividends,
+- Black-76 (`F_S = 1`, `F_r = F_q = 0`).
+
+The formulas are:
+
+```
+Δ = D·ω·N(ωd₁)·F_S    Γ = D·n(d₁)/(F·s)·F_S²    ν = D·F·n(d₁)·√T
+vanna = −D·F_S·n(d₁)·d₂/σ    volga = ν·d₁·d₂/σ    ρ = −T·V + D·ω·N(ωd₁)·F_r    φ = D·ω·N(ωd₁)·F_q
+```
+
+Θ and charm keep the closed forms below, but only for time-homogeneous inputs: flat curves, flat vol
+and no discrete dividends before expiry. Otherwise they are bumped by the forward-realising roll.
+
+**Cash-or-nothing digitals** paying `Q`: `V = Q·D·N(ωd₂)`, with all nine greeks in closed form (see
+`engine/methods/black_formulas.py`). They are validated against QuantLib `CashOrNothingPayoff` and
+Richardson bumps. Displayed greeks come from the call-spread replica unless the smoothing width is 0
+(see [`../methods/digital_smoothing.md`](../methods/digital_smoothing.md)).
+
 ## Generalised (cost-of-carry) formula
 
 Underlying `X`, carry `μ`, zero rates to expiry `T`:
@@ -73,7 +98,9 @@ loses digits.
 
 - **Flat vol only.** The implied vol is flat per option (sticky strike under spot bumps). Smile
   dynamics arrive with vol surfaces in Phase 3.
-- **Continuous carry only.** Discrete dividends arrive in Phase 2.
-- **European exercise only.**
+- **Spot-jump dividends:** closed forms exist only under the escrowed treatment (or with
+  proportional dividends only). The spot-jump treatment with cash dividends raises and points to the
+  PDE.
+- **European exercise only.** Americans are priced by the tree and PDE.
 - **Expiry day.** At `T = 0` the price is intrinsic and Δ is a step (½ at the money); all other
   greeks are reported as 0.
