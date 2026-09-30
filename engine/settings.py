@@ -37,7 +37,34 @@ class BumpSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class ImpliedVolSettings:
+    """Implied-volatility solver settings (Jäckel, "Let's Be Rational").
+
+    Attributes:
+        max_iterations: Householder(3) iterations after the rational initial guess. Two reach
+            machine precision over the whole domain (Jäckel 2015, §5).
+
+    """
+
+    max_iterations: int = 2
+
+    def __post_init__(self) -> None:
+        if self.max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
+
+
+@dataclass(frozen=True, slots=True)
 class PricingSettings:
-    """Top-level numerical settings passed to :func:`engine.pricing.price`."""
+    """Top-level numerical settings passed to :func:`engine.pricing.price`.
+
+    Attributes:
+        bumps: Bump sizes for bump-and-revalue greeks.
+        implied_vol: Implied-volatility solver settings.
+        force_bump_greeks: Compute every greek by bump-and-revalue even where closed forms exist
+            (used to cross-check analytic greeks).
+
+    """
 
     bumps: BumpSettings = field(default_factory=BumpSettings)
+    implied_vol: ImpliedVolSettings = field(default_factory=ImpliedVolSettings)
+    force_bump_greeks: bool = False
