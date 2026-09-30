@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { OptionType, PriceRequest } from "../api/types";
+import type { ModelType, OptionType, PriceRequest } from "../api/types";
 import { addYears, isoDate } from "../lib/dates";
 
 /** Inputs in display units (rates and vols in %, bumps in desk units). */
@@ -16,6 +16,7 @@ export interface Inputs {
   dividendYieldPct: number;
   borrowPct: number;
   volPct: number;
+  model: ModelType;
   method: string;
   bumps: { spotRelPct: number; volAbsPts: number; rateAbsBp: number; timeDays: number };
 }
@@ -26,15 +27,16 @@ export function defaultInputs(today: Date = new Date()): Inputs {
     optionType: "call",
     strike: 100,
     expiry: addYears(val, 1),
-    quantity: 1,
+    quantity: 10_000,
     currency: "EUR",
     valuationDate: val,
     spot: 100,
     ratePct: 3,
-    dividendYieldPct: 1,
+    dividendYieldPct: 2,
     borrowPct: 0,
     volPct: 20,
-    method: "forward_intrinsic",
+    model: "bsm",
+    method: "analytic",
     bumps: { spotRelPct: 0.1, volAbsPts: 0.1, rateAbsBp: 1, timeDays: 1 },
   };
 }
@@ -78,7 +80,7 @@ export function toRequest(i: Inputs): PriceRequest {
       borrow: i.borrowPct / 100,
       vol: i.volPct / 100,
     },
-    model: { type: "bsm" },
+    model: { type: i.model },
     method: i.method,
     settings: {
       bumps: {
@@ -87,6 +89,35 @@ export function toRequest(i: Inputs): PriceRequest {
         rate_abs: i.bumps.rateAbsBp / 1e4,
         time_days: i.bumps.timeDays,
       },
+      implied_vol: { max_iterations: 2 },
+      force_bump_greeks: false,
     },
   };
 }
+
+/** Calendar days from valuation date to expiry (can be negative). */
+export function daysToExpiry(i: Inputs): number {
+  const ms = Date.parse(i.expiry) - Date.parse(i.valuationDate);
+  return Math.round(ms / 86_400_000);
+}
+
+interface InputField {
+  key: keyof Inputs;
+  label: string;
+  format: (i: Inputs) => string;
+}
+
+/** Inputs shown in the compare bar when they differ from the pinned state. */
+export const COMPARED_FIELDS: InputField[] = [
+  { key: "optionType", label: "Type", format: (i) => i.optionType },
+  { key: "strike", label: "Strike", format: (i) => i.strike.toFixed(2) },
+  { key: "expiry", label: "Expiry", format: (i) => i.expiry },
+  { key: "quantity", label: "Qty", format: (i) => String(i.quantity) },
+  { key: "valuationDate", label: "Val. date", format: (i) => i.valuationDate },
+  { key: "spot", label: "Spot", format: (i) => i.spot.toFixed(2) },
+  { key: "ratePct", label: "Rate", format: (i) => `${i.ratePct.toFixed(3)}%` },
+  { key: "dividendYieldPct", label: "Div", format: (i) => `${i.dividendYieldPct.toFixed(3)}%` },
+  { key: "borrowPct", label: "Borrow", format: (i) => `${i.borrowPct.toFixed(3)}%` },
+  { key: "volPct", label: "Vol", format: (i) => `${i.volPct.toFixed(2)}%` },
+  { key: "model", label: "Model", format: (i) => (i.model === "bsm" ? "BSM" : "Black-76") },
+];

@@ -1,4 +1,14 @@
-import type { MetaResponse, PriceRequest, PriceResponse } from "./types";
+import type {
+  HeatmapRequest,
+  HeatmapResponse,
+  ImpliedVolRequest,
+  ImpliedVolResponse,
+  MetaResponse,
+  PriceRequest,
+  PriceResponse,
+  ProfileRequest,
+  ProfileResponse,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -32,6 +42,10 @@ async function request<T>(path: string, init: Omit<RequestInit, "headers"> = {})
   return (await res.json()) as T;
 }
 
+function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { method: "POST", body: JSON.stringify(body), ...(signal ? { signal } : {}) });
+}
+
 export interface Timed<T> {
   data: T;
   roundTripMs: number;
@@ -39,13 +53,18 @@ export interface Timed<T> {
 
 export async function postPrice(req: PriceRequest, signal?: AbortSignal): Promise<Timed<PriceResponse>> {
   const t0 = performance.now();
-  const data = await request<PriceResponse>("/api/price", {
-    method: "POST",
-    body: JSON.stringify(req),
-    ...(signal ? { signal } : {}),
-  });
+  const data = await post<PriceResponse>("/api/price", req, signal);
   return { data, roundTripMs: performance.now() - t0 };
 }
+
+export const postProfile = (req: ProfileRequest, signal?: AbortSignal) =>
+  post<ProfileResponse>("/api/profile", req, signal);
+
+export const postHeatmap = (req: HeatmapRequest, signal?: AbortSignal) =>
+  post<HeatmapResponse>("/api/heatmap", req, signal);
+
+export const postImpliedVol = (req: ImpliedVolRequest, signal?: AbortSignal) =>
+  post<ImpliedVolResponse>("/api/implied-vol", req, signal);
 
 export function getMeta(signal?: AbortSignal): Promise<MetaResponse> {
   return request<MetaResponse>("/api/meta", signal ? { signal } : {});

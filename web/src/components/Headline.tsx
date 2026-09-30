@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
 import { usePrice } from "../hooks/usePrice";
 import { formatNumber } from "../lib/format";
+import { usePin } from "../hooks/usePin";
 import { useInputs } from "../state/inputs";
+import { CompareBar } from "./CompareBar";
 
 function Stat({ label, value, unit }: { label: string; value: ReactNode; unit?: string | undefined }) {
   return (
@@ -22,6 +24,7 @@ export function Headline() {
   const inputs = useInputs((s) => s.inputs);
   const r = data?.data;
   const dim = pending || !!error ? "opacity-55" : "";
+  const { pinned, canPin, toggle } = usePin();
 
   return (
     <section
@@ -35,8 +38,25 @@ export function Headline() {
       )}
       <div className="flex flex-wrap items-end justify-between gap-6 px-5 pb-4 pt-4">
         <div>
-          <div className="text-[12px] text-fg-muted">
-            European {inputs.optionType} · K {formatNumber(inputs.strike, 2)} · {inputs.expiry}
+          <div className="flex items-center gap-3 text-[12px] text-fg-muted">
+            <span>
+              European {inputs.optionType} · K {formatNumber(inputs.strike, 2)} · {inputs.expiry} ·{" "}
+              {inputs.model === "bsm" ? "BSM" : "Black-76"}
+            </span>
+            <button
+              type="button"
+              onClick={toggle}
+              disabled={!pinned && !canPin}
+              title="Pin this result and compare subsequent changes against it (P)"
+              aria-pressed={!!pinned}
+              className={`rounded border px-1.5 py-px text-[11px] disabled:opacity-40 ${
+                pinned
+                  ? "border-accent bg-accent-soft text-fg"
+                  : "border-line text-fg-muted hover:border-line-strong hover:text-fg"
+              }`}
+            >
+              {pinned ? "Pinned" : "Pin"}
+            </button>
           </div>
           <div className={`mt-1 flex items-baseline gap-2 transition-opacity ${dim}`} data-testid="headline-price">
             <span className="num text-[32px] font-medium leading-none tracking-tight">
@@ -57,6 +77,7 @@ export function Headline() {
         <Stat label="Discount factor P(0,T)" value={r ? formatNumber(r.discount_factor, 6) : "—"} />
         <Stat label="Time to expiry τ" value={r ? formatNumber(r.time_to_expiry, 4) : "—"} unit="y ACT/365F" />
       </div>
+      <CompareBar />
       {error && (
         <div role="alert" className="border-t border-line px-5 py-2 text-[12px] text-neg">
           {error instanceof ApiError ? error.message : "Pricing request failed. Is the API running?"}

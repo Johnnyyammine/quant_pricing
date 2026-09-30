@@ -67,6 +67,7 @@ export function NumericField({
   min,
   max,
   help,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -78,6 +79,7 @@ export function NumericField({
   min?: number;
   max?: number;
   help?: FieldHelp;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const inBounds = (x: number) => (min === undefined || x >= min) && (max === undefined || x <= max);
@@ -103,9 +105,10 @@ export function NumericField({
 
   return (
     <FieldRow id={id} label={label} help={help} unit={unit}>
-      <div className={`${boxBase} ${invalid ? "border-neg" : "border-line"}`}>
+      <div className={`${boxBase} ${invalid ? "border-neg" : "border-line"} ${disabled ? "opacity-45" : ""}`}>
         <input
           id={id}
+          disabled={disabled}
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}

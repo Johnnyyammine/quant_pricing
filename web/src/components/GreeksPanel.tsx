@@ -2,6 +2,7 @@ import type { GreekKey } from "../api/types";
 import { usePrice } from "../hooks/usePrice";
 import { formatNumber } from "../lib/format";
 import { GREEKS, type GreekMode } from "../lib/greeks";
+import { useCompare } from "../state/compare";
 import { useUi } from "../state/ui";
 import { Segmented } from "./Segmented";
 import { Tip, TipBody } from "./Tip";
@@ -18,6 +19,8 @@ export function GreeksPanel() {
   const setMode = useUi((s) => s.setGreekMode);
   const { data, pending, error } = usePrice();
   const rows = data?.data.greeks[mode] ?? [];
+  const pinned = useCompare((s) => s.pinned);
+  const pinnedValues = new Map(pinned?.result.greeks[mode].map((g) => [g.key, g.value]));
 
   return (
     <section aria-label="Greeks" className="flex flex-col">
@@ -26,6 +29,16 @@ export function GreeksPanel() {
         <Segmented label="Greek units" size="sm" value={mode} options={MODES} onChange={setMode} />
       </header>
       <table className={`w-full transition-opacity ${pending || error ? "opacity-55" : ""}`}>
+        {pinned && (
+          <thead>
+            <tr className="text-[10.5px] text-fg-faint">
+              <th className="pt-2 pl-4 text-left font-normal" />
+              <th className="pt-2 pr-2 text-right font-normal">Current</th>
+              <th className="pt-2 pr-2 text-right font-normal">Δ vs pin</th>
+              <th className="pt-2 pr-4 text-left font-normal">Unit</th>
+            </tr>
+          </thead>
+        )}
         <tbody>
           {rows.map((g) => {
             const meta = GREEKS[g.key];
@@ -53,6 +66,14 @@ export function GreeksPanel() {
                   </Tip>
                 </td>
                 <td className="num py-[5px] pr-2 text-[12.5px]">{formatNumber(g.value, meta.dp[mode])}</td>
+                {pinned && (
+                  <td className="num py-[5px] pr-2 text-[12px] text-fg-muted" data-testid={`greek-${g.key}-delta`}>
+                    {(() => {
+                      const ref = pinnedValues.get(g.key);
+                      return ref === undefined ? "—" : formatNumber(g.value - ref, meta.dp[mode], { sign: true });
+                    })()}
+                  </td>
+                )}
                 <td className="w-[92px] whitespace-nowrap py-[5px] pr-4 text-[11px] text-fg-faint">{g.unit}</td>
               </tr>
             );

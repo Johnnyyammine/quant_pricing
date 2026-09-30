@@ -53,6 +53,59 @@ test("engine errors surface without breaking the UI", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("matured");
 });
 
+test("profiles chart renders and switches axis", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("tab", { name: "Profiles" }).click();
+  await expect(page.getByTestId("chart").locator(".main-svg").first()).toBeVisible();
+  await page.getByRole("radio", { name: "vs Time" }).click();
+  await expect(page.getByLabel(/Position value profile/)).toContainText("Position value");
+  await page.getByRole("combobox", { name: "Profile metric" }).selectOption("gamma");
+  await expect(page.getByLabel(/Gamma/).first()).toBeVisible();
+});
+
+test("heatmap renders a spot-vol grid", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("tab", { name: "Heatmap" }).click();
+  await expect(page.getByTestId("chart").locator(".main-svg").first()).toBeVisible();
+  await expect(page.getByLabel("Spot-vol heatmap")).toContainText("Full-revaluation PnL");
+});
+
+test("pin and compare shows input changes and greek deltas", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
+  const bar = page.getByTestId("compare-bar");
+  await expect(bar).toContainText("No input changes yet");
+  await page.locator("#spot").focus();
+  await page.locator("#spot").press("Shift+ArrowUp");
+  await expect(bar).toContainText("Spot 100.00 → 110.00");
+  await expect(bar).toContainText("Δ value +");
+  await expect(page.getByTestId("greek-delta-delta")).toHaveText(/^\+/);
+  await bar.getByRole("button", { name: "Unpin" }).click();
+  await expect(bar).toBeHidden();
+});
+
+test("black-76 quotes the forward and disables carry inputs", async ({ page }) => {
+  await settledPrice(page);
+  await page.locator("#model").selectOption("black76");
+  await expect(page.locator("#dividend-yield")).toBeDisabled();
+  await expect(page.getByText("Forward", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Result")).toContainText("Black-76");
+});
+
+test("implied vol recovers the input vol from the model price", async ({ page }) => {
+  const shown = await settledPrice(page);
+  await page.locator("#iv-target").fill(shown);
+  // The headline shows 4 dp, so σ is recovered to about 1e-4 vol points.
+  await expect(page.getByTestId("implied-vol")).toHaveText(/^(19\.99\d\d|20\.00\d\d)$/);
+});
+
+test("diagnostics cross-checks analytic greeks against bumps", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("tab", { name: "Diagnostics" }).click();
+  await expect(page.getByText("Greek check · analytic vs bump")).toBeVisible();
+  await expect(page.getByText("σ (at strike, expiry)")).toBeVisible();
+});
+
 for (const theme of ["light", "dark"] as const) {
   test(`renders in ${theme} theme`, async ({ page }) => {
     await page

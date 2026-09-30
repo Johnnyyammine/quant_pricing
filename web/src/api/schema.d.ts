@@ -24,6 +24,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/heatmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Heatmap
+         * @description Full-revaluation position values over spot × vol shocks, optionally after a time roll.
+         */
+        post: operations["heatmap_api_heatmap_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/implied-vol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Implied Vol
+         * @description Flat implied volatility reproducing a unit price (Let's Be Rational).
+         */
+        post: operations["implied_vol_api_implied_vol_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/meta": {
         parameters: {
             query?: never;
@@ -58,6 +98,26 @@ export interface paths {
          * @description Price one instrument with greeks in desk units.
          */
         post: operations["price_api_price_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Profile
+         * @description Position value and desk greeks along spot or time (full revaluation at each point).
+         */
+        post: operations["profile_api_profile_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -213,8 +273,131 @@ export interface components {
             version: string;
         };
         /**
+         * HeatmapRequest
+         * @description Full-revaluation value grid over spot and vol shocks.
+         */
+        HeatmapRequest: {
+            /**
+             * Horizon Days
+             * @default 0
+             */
+            horizon_days: number;
+            pricing: components["schemas"]["PriceRequest"];
+            /**
+             * Spot Range Pct
+             * @default 20
+             */
+            spot_range_pct: number;
+            /**
+             * Spot Steps
+             * @default 21
+             */
+            spot_steps: number;
+            /**
+             * Vol Range Pts
+             * @default 10
+             */
+            vol_range_pts: number;
+            /**
+             * Vol Steps
+             * @default 21
+             */
+            vol_steps: number;
+        };
+        /**
+         * HeatmapResponse
+         * @description Position values on a vol × spot grid (rows: vol shifts). ``null`` = shock out of domain.
+         */
+        HeatmapResponse: {
+            /**
+             * Base Value
+             * @description Current position value, currency
+             */
+            base_value: number;
+            /** Currency */
+            currency: string;
+            /** Horizon Days */
+            horizon_days: number;
+            /**
+             * Notional
+             * @description quantity × current spot, currency
+             */
+            notional: number;
+            /** Spot Shifts Pct */
+            spot_shifts_pct: number[];
+            /** Values */
+            values: (number | null)[][];
+            /** Vol Shifts Pts */
+            vol_shifts_pts: number[];
+        };
+        /**
+         * ImpliedVolRequest
+         * @description Implied vol from a unit price. ``market.vol`` is ignored.
+         */
+        ImpliedVolRequest: {
+            instrument: components["schemas"]["EuropeanOptionIn"];
+            market: components["schemas"]["MarketIn"];
+            /**
+             * @default {
+             *       "type": "bsm"
+             *     }
+             */
+            model: components["schemas"]["ModelIn"];
+            /**
+             * @default {
+             *       "bumps": {
+             *         "rate_abs": 0.0001,
+             *         "spot_rel": 0.001,
+             *         "time_days": 1,
+             *         "vol_abs": 0.001
+             *       },
+             *       "force_bump_greeks": false,
+             *       "implied_vol": {
+             *         "max_iterations": 2
+             *       }
+             *     }
+             */
+            settings: components["schemas"]["SettingsIn"];
+            /**
+             * Target Price
+             * @description Unit price, currency
+             */
+            target_price: number;
+        };
+        /**
+         * ImpliedVolResponse
+         * @description Implied vol and the quantities it was solved from.
+         */
+        ImpliedVolResponse: {
+            /** Discount Factor */
+            discount_factor: number;
+            /** Forward */
+            forward: number;
+            /**
+             * Implied Vol
+             * @description Decimal
+             */
+            implied_vol: number;
+            /** Time To Expiry */
+            time_to_expiry: number;
+        };
+        /**
+         * ImpliedVolSettingsIn
+         * @description Implied-vol solver settings.
+         */
+        ImpliedVolSettingsIn: {
+            /**
+             * Max Iterations
+             * @default 2
+             */
+            max_iterations: number;
+        };
+        /**
          * MarketIn
          * @description Flat market: continuously compounded rates, ACT/365F.
+         *
+         *     Under Black-76, ``spot`` is the forward (futures) price for the option expiry and the
+         *     dividend yield and borrow spread are ignored.
          */
         MarketIn: {
             /**
@@ -275,9 +458,9 @@ export interface components {
             /**
              * Type
              * @default bsm
-             * @constant
+             * @enum {string}
              */
-            type: "bsm";
+            type: "bsm" | "black76";
         };
         /**
          * OptionType
@@ -294,7 +477,7 @@ export interface components {
             market: components["schemas"]["MarketIn"];
             /**
              * Method
-             * @default forward_intrinsic
+             * @default analytic
              */
             method: string;
             /**
@@ -310,6 +493,10 @@ export interface components {
              *         "spot_rel": 0.001,
              *         "time_days": 1,
              *         "vol_abs": 0.001
+             *       },
+             *       "force_bump_greeks": false,
+             *       "implied_vol": {
+             *         "max_iterations": 2
              *       }
              *     }
              */
@@ -328,6 +515,11 @@ export interface components {
             /** Forward */
             forward: number;
             greeks: components["schemas"]["GreeksOut"];
+            /**
+             * Notional
+             * @description quantity × spot, currency
+             */
+            notional: number;
             /**
              * Pct Notional
              * @description 100 × unit price / spot, %
@@ -350,6 +542,105 @@ export interface components {
             time_to_expiry: number;
         };
         /**
+         * ProfileRequest
+         * @description Price and greeks along spot (at several horizons) or along time (at several spot shifts).
+         */
+        ProfileRequest: {
+            /**
+             * Axis
+             * @enum {string}
+             */
+            axis: "spot" | "time";
+            /**
+             * Horizons Days
+             * @description Spot axis: valuation-date rolls
+             * @default [
+             *       0
+             *     ]
+             */
+            horizons_days: number[];
+            /**
+             * Points
+             * @default 81
+             */
+            points: number;
+            pricing: components["schemas"]["PriceRequest"];
+            /**
+             * Spot Range Pct
+             * @description Spot axis: ±range, %
+             * @default 30
+             */
+            spot_range_pct: number;
+            /**
+             * Spot Shifts Pct
+             * @description Time axis: spot shifts, %
+             * @default [
+             *       0
+             *     ]
+             */
+            spot_shifts_pct: number[];
+        };
+        /**
+         * ProfileResponse
+         * @description Profiles along spot or time.
+         */
+        ProfileResponse: {
+            /**
+             * Axis
+             * @enum {string}
+             */
+            axis: "spot" | "time";
+            /** Currency */
+            currency: string;
+            /**
+             * Notional
+             * @description quantity × current spot, currency
+             */
+            notional: number;
+            /**
+             * Payoff
+             * @description Spot axis: position payoff at expiry
+             */
+            payoff: number[] | null;
+            /** Series */
+            series: components["schemas"]["ProfileSeries"][];
+            /** Spot */
+            spot: number;
+            /** Strike */
+            strike: number;
+            /** Units */
+            units: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            /**
+             * X
+             * @description Spot level, or days to expiry
+             */
+            x: number[];
+        };
+        /**
+         * ProfileSeries
+         * @description One line family of a profile: value and greeks along the x axis.
+         */
+        ProfileSeries: {
+            /** Greeks */
+            greeks: {
+                [key: string]: {
+                    [key: string]: number[];
+                };
+            };
+            /** Horizon Days */
+            horizon_days: number;
+            /** Label */
+            label: string;
+            /** Position Value */
+            position_value: number[];
+            /** Spot Shift Pct */
+            spot_shift_pct: number;
+        };
+        /**
          * SettingsIn
          * @description Numerical settings.
          */
@@ -363,6 +654,18 @@ export interface components {
              *     }
              */
             bumps: components["schemas"]["BumpSettingsIn"];
+            /**
+             * Force Bump Greeks
+             * @description Bump-and-revalue every greek, even where closed forms exist
+             * @default false
+             */
+            force_bump_greeks: boolean;
+            /**
+             * @default {
+             *       "max_iterations": 2
+             *     }
+             */
+            implied_vol: components["schemas"]["ImpliedVolSettingsIn"];
         };
     };
     responses: never;
@@ -389,6 +692,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    heatmap_api_heatmap_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeatmapRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeatmapResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    implied_vol_api_implied_vol_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpliedVolRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpliedVolResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -433,6 +802,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PriceResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    profile_api_profile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
                 };
             };
             /** @description Unprocessable Entity */

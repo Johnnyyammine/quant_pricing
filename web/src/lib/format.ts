@@ -42,3 +42,10 @@ export function roundTo(x: number, dp: number): number {
   const f = 10 ** dp;
   return Math.round(x * f) / f;
 }
+
+/** Scientific notation with a true minus sign, e.g. 3.2e−7. */
+export function formatSci(x: number, dp: number): string {
+  if (!Number.isFinite(x)) return "—";
+  if (x === 0) return "0";
+  return x.toExponential(dp).replace("-", MINUS).replace("e+", "e");
+}
