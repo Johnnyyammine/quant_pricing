@@ -12,6 +12,7 @@ from engine.methods.base import PricingMethod
 from engine.models.base import Model
 from engine.results import Diagnostics, Greek, Greeks, GreekSource, PricingResult
 from engine.risk.greeks import bump_greeks
+from engine.risk.smoothing import risk_proxy
 from engine.settings import PricingSettings
 
 ALL_GREEKS: tuple[Greek, ...] = tuple(Greek)
@@ -49,17 +50,40 @@ def price(
 
     start = time.perf_counter()
     base = method.evaluate(instrument, market, model, settings)
+    details = dict(base.details)
 
     greek_result: Greeks | None = None
     revaluations = 1
     warnings: tuple[str, ...] = ()
-    if greeks:
+    proxy = risk_proxy(instrument, settings) if greeks else None
+    if proxy is not None:
+        # Greeks of the smoothed replica; the price stays exact (engine.risk.smoothing).
+        values = dict.fromkeys(greeks, 0.0)
+        sources: dict[Greek, GreekSource] = {}
+        proxy_value = 0.0
+        for leg in proxy.legs:
+            res = price(leg.instrument, market, model, method, settings, greeks=greeks)
+            assert res.greeks is not None
+            proxy_value += leg.weight * res.price
+            for g in greeks:
+                values[g] += leg.weight * res.greeks.values[g]
+                sources[g] = res.greeks.sources[g]
+            revaluations += res.diagnostics.revaluations
+            warnings += res.diagnostics.warnings
+        greek_result = Greeks(values=values, sources=sources)
+        details |= {
+            "greeks_from": proxy.label,
+            "spread_width": proxy.width,
+            "replica_value": proxy_value,
+            "smoothing_bias": proxy_value - base.value,
+        }
+    elif greeks:
         analytic = (
             {}
             if settings.force_bump_greeks
             else method.analytic_greeks(instrument, market, model, settings)
         )
-        values: dict[Greek, float] = {g: analytic[g] for g in greeks if g in analytic}
+        values = {g: analytic[g] for g in greeks if g in analytic}
         sources = dict.fromkeys(values, GreekSource.ANALYTIC)
         missing = [g for g in greeks if g not in analytic]
         if missing:
@@ -87,7 +111,7 @@ def price(
             runtime_ms=runtime_ms,
             revaluations=revaluations,
             settings=settings,
-            details=base.details,
+            details=details,
             warnings=warnings,
         ),
     )
