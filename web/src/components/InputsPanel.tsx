@@ -1,9 +1,19 @@
+import { useEffect } from "react";
+
 import { useMeta } from "../hooks/usePrice";
-import { useInputs } from "../state/inputs";
-import { DateField, NumericField, SelectField, ControlRow } from "./fields";
+import { useInputs, type ProductType } from "../state/inputs";
+import { DividendsGroup } from "./DividendsGroup";
+import { ControlRow, DateField, NumericField, SelectField } from "./fields";
 import { ImpliedVolGroup } from "./ImpliedVolGroup";
 import { InputGroup } from "./InputGroup";
+import { RateField } from "./RateField";
 import { Segmented } from "./Segmented";
+
+const PRODUCTS = [
+  { value: "european", label: "European" },
+  { value: "american", label: "American" },
+  { value: "digital", label: "Digital" },
+] as const satisfies readonly { value: ProductType; label: string }[];
 
 const OPTION_TYPES = [
   { value: "call", label: "Call" },
@@ -15,21 +25,54 @@ const MODELS = [
   { value: "black76", label: "Black-76 (forward)" },
 ] as const;
 
+const TREATMENTS = [
+  { value: "escrowed", label: "Escrowed" },
+  { value: "spot", label: "Spot jumps" },
+] as const;
+
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "JPY"].map((c) => ({ value: c, label: c }));
+
+/** Preferred method per product when the current one cannot price it. */
+const PREFERRED: Record<ProductType, string> = { european: "analytic", american: "cn_pde", digital: "analytic" };
+
+/** Keep the selected method valid for the product (e.g. switching to American leaves analytic). */
+function useSupportedMethod(): { value: string; label: string }[] {
+  const meta = useMeta();
+  const product = useInputs((s) => s.inputs.productType);
+  const method = useInputs((s) => s.inputs.method);
+  const set = useInputs((s) => s.set);
+  const options = (meta.data?.methods ?? [])
+    .filter((m) => m.instruments.includes(product))
+    .map((m) => ({ value: m.name, label: m.label }));
+  const valid = options.some((o) => o.value === method);
+  useEffect(() => {
+    if (!meta.data || valid) return;
+    const preferred = options.find((o) => o.value === PREFERRED[product]) ?? options[0];
+    if (preferred) set("method", preferred.value);
+  }, [meta.data, valid, options, product, set]);
+  return options.length ? options : [{ value: method, label: method }];
+}
 
 export function InputsPanel() {
   const i = useInputs((s) => s.inputs);
   const set = useInputs((s) => s.set);
-  const meta = useMeta();
+  const methods = useSupportedMethod();
   const black76 = i.model === "black76";
   const notUsed = "Not used under Black-76: the forward is quoted directly.";
-  const methods = meta.data?.methods.map((m) => ({ value: m.name, label: m.label })) ?? [
-    { value: i.method, label: i.method },
-  ];
 
   return (
     <div>
       <InputGroup id="product" title="Product">
+        <div className="mb-1.5">
+          <Segmented
+            label="Product type"
+            value={i.productType}
+            options={PRODUCTS}
+            onChange={(v) => {
+              set("productType", v);
+            }}
+          />
+        </div>
         <ControlRow label="Type">
           <Segmented
             label="Option type"
@@ -59,8 +102,32 @@ export function InputsPanel() {
           onChange={(v) => {
             set("expiry", v);
           }}
-          help={{ title: "Expiry T", definition: "Expiry and payment date. τ = ACT/365F from valuation date." }}
+          help={{
+            title: "Expiry T",
+            definition:
+              i.productType === "american"
+                ? "Last exercise date. Exercise is allowed on any day up to expiry. τ = ACT/365F."
+                : "Expiry and payment date. τ = ACT/365F from valuation date.",
+          }}
         />
+        {i.productType === "digital" && (
+          <NumericField
+            id="payout"
+            label="Payout"
+            value={i.payout}
+            onChange={(v) => {
+              set("payout", v);
+            }}
+            step={0.1}
+            dp={2}
+            min={0.0001}
+            unit={i.currency}
+            help={{
+              title: "Digital payout Q",
+              definition: "Cash paid per unit if the option expires in the money (cash-or-nothing).",
+            }}
+          />
+        )}
         <NumericField
           id="quantity"
           label="Quantity"
@@ -114,55 +181,38 @@ export function InputsPanel() {
               : { title: "Spot S₀", definition: "Underlying price at the valuation date." }
           }
         />
-        <NumericField
+        <RateField
+          curve="rate"
           id="rate"
           label="Rate"
-          value={i.ratePct}
-          onChange={(v) => {
-            set("ratePct", v);
-          }}
-          step={0.05}
-          dp={3}
-          unit="%"
           help={{
             title: "Discount rate r",
-            definition: "Flat zero rate, continuously compounded. Discounts cash flows and enters the forward.",
-            formula: "P(0,T) = exp(−rT)",
+            definition:
+              "Zero rate, continuously compounded: flat, or a curve of tenor pillars with log-linear discount factors. Discounts cash flows and enters the forward.",
+            formula: "P(0,T) = exp(−z(T)·T)",
           }}
         />
-        <NumericField
+        <RateField
+          curve="dividendYield"
           id="dividend-yield"
           label="Dividend yield"
-          value={i.dividendYieldPct}
-          onChange={(v) => {
-            set("dividendYieldPct", v);
-          }}
-          step={0.05}
-          dp={3}
-          unit="%"
           disabled={black76}
           help={{
             title: "Dividend yield q",
-            definition: black76 ? notUsed : "Continuous dividend yield. Enters the forward only.",
+            definition: black76 ? notUsed : "Continuous dividend yield (flat or curve). Enters the forward only.",
           }}
         />
-        <NumericField
+        <RateField
+          curve="borrow"
           id="borrow"
           label="Repo / borrow"
-          value={i.borrowPct}
-          onChange={(v) => {
-            set("borrowPct", v);
-          }}
-          step={0.05}
-          dp={3}
-          unit="%"
           disabled={black76}
           help={{
             title: "Repo / borrow spread b",
             definition: black76
               ? notUsed
-              : "Stock borrow cost over the discount rate. Enters the forward only, not discounting.",
-            formula: "F = S₀ · exp((r − q − b)T)",
+              : "Stock borrow cost over the discount rate (flat or curve). Enters the forward only, not discounting.",
+            formula: "F = S₀ · P_q · P_b / P_r − dividends",
           }}
         />
         <NumericField
@@ -181,6 +231,8 @@ export function InputsPanel() {
         />
       </InputGroup>
 
+      <DividendsGroup disabled={black76} />
+
       <InputGroup id="model" title="Model & method">
         <SelectField
           wide
@@ -192,6 +244,23 @@ export function InputsPanel() {
             set("model", v);
           }}
         />
+        {!black76 && (
+          <SelectField
+            wide
+            id="dividend-treatment"
+            label="Dividends"
+            value={i.dividendTreatment}
+            options={TREATMENTS}
+            onChange={(v) => {
+              set("dividendTreatment", v);
+            }}
+            help={{
+              title: "Cash-dividend treatment",
+              definition:
+                "Escrowed: S − PV(cash dividends) is lognormal; Europeans are Black on the dividend-adjusted forward. Spot jumps: S is lognormal and drops by the dividend at each ex-date (PDE only).",
+            }}
+          />
+        )}
         <SelectField
           wide
           id="method"
@@ -204,7 +273,7 @@ export function InputsPanel() {
         />
       </InputGroup>
 
-      <ImpliedVolGroup />
+      {i.productType === "european" && <ImpliedVolGroup />}
     </div>
   );
 }

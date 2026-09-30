@@ -5,11 +5,12 @@ import type { GreekKey } from "../api/types";
 import type { GreekMode } from "../lib/greeks";
 
 export type ThemePref = "system" | "light" | "dark";
-export type AnalysisTab = "profiles" | "heatmap" | "diagnostics";
+export type AnalysisTab = "profiles" | "heatmap" | "methods" | "diagnostics";
 /** Analysis views, in tab order. Each view ships with the phase that makes it useful. */
 export const TABS: { value: AnalysisTab; label: string }[] = [
   { value: "profiles", label: "Profiles" },
   { value: "heatmap", label: "Heatmap" },
+  { value: "methods", label: "Methods" },
   { value: "diagnostics", label: "Diagnostics" },
 ];
 
@@ -109,7 +110,7 @@ export const useUi = create<UiStore>()(
       merge: (persisted, current) => {
         // Tolerate preferences written by an older version (missing or renamed keys).
         const p = (persisted ?? {}) as Partial<UiStore>;
-        const tabs: AnalysisTab[] = ["profiles", "heatmap", "diagnostics"];
+        const tabs: AnalysisTab[] = ["profiles", "heatmap", "methods", "diagnostics"];
         return {
           ...current,
           ...p,

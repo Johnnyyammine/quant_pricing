@@ -2,7 +2,7 @@ import { Command } from "cmdk";
 import { useEffect } from "react";
 
 import { usePin } from "../hooks/usePin";
-import { useInputs } from "../state/inputs";
+import { useInputs, type ProductType } from "../state/inputs";
 import { TABS, useUi, type AnalysisTab } from "../state/ui";
 
 interface Action {
@@ -66,12 +66,24 @@ export function CommandPalette() {
   const setOption = (v: "call" | "put") => () => {
     set("optionType", v);
   };
+  const setProduct = (v: ProductType) => () => {
+    set("productType", v);
+  };
+  const setMethod = (v: string) => () => {
+    set("method", v);
+  };
   const setModel = (v: "bsm" | "black76") => () => {
     set("model", v);
   };
   const actions: Action[] = [
-    { id: "call", group: "Product", label: "European call", run: setOption("call") },
-    { id: "put", group: "Product", label: "European put", run: setOption("put") },
+    { id: "p-eu", group: "Product", label: "European option", run: setProduct("european") },
+    { id: "p-am", group: "Product", label: "American option", run: setProduct("american") },
+    { id: "p-dg", group: "Product", label: "Digital (cash-or-nothing)", run: setProduct("digital") },
+    { id: "call", group: "Product", label: "Call", run: setOption("call") },
+    { id: "put", group: "Product", label: "Put", run: setOption("put") },
+    { id: "m-an", group: "Method", label: "Analytic (closed form)", run: setMethod("analytic") },
+    { id: "m-tree", group: "Method", label: "Leisen–Reimer tree", run: setMethod("lr_tree") },
+    { id: "m-pde", group: "Method", label: "Crank–Nicolson PDE", run: setMethod("cn_pde") },
     { id: "bsm", group: "Model", label: "Black–Scholes–Merton (spot)", run: setModel("bsm") },
     { id: "b76", group: "Model", label: "Black-76 (forward)", run: setModel("black76") },
     ...TABS.map((t) => ({ id: `tab-${t.value}`, group: "Go to", label: t.label, run: tab(t.value) })),

@@ -108,7 +108,7 @@ def price(
     """
     settings = settings or PricingSettings()
     _check(instrument, market, model, method)
-    start = time.perf_counter()
+    start = time.thread_time()
     base = method.evaluate(instrument, market, model, settings)
     details = dict(base.details)
     greek_result: Greeks | None = None
@@ -130,7 +130,7 @@ def price(
                 "replica_value": proxy_value,
                 "smoothing_bias": proxy_value - base.value,
             }
-    runtime_ms = (time.perf_counter() - start) * 1e3
+    runtime_ms = (time.thread_time() - start) * 1e3
     return PricingResult(
         price=base.value,
         greeks=greek_result,

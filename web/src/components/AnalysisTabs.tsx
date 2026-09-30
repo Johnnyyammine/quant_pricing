@@ -3,6 +3,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { TABS, useUi, type AnalysisTab } from "../state/ui";
 import { Diagnostics } from "./Diagnostics";
 import { Heatmap } from "./Heatmap";
+import { MethodsView } from "./MethodsView";
 import { Profiles } from "./Profiles";
 
 export function AnalysisTabs() {
@@ -31,6 +32,9 @@ export function AnalysisTabs() {
       </Tabs.Content>
       <Tabs.Content value="heatmap" className="outline-none">
         <Heatmap />
+      </Tabs.Content>
+      <Tabs.Content value="methods" className="outline-none">
+        <MethodsView />
       </Tabs.Content>
       <Tabs.Content value="diagnostics" className="outline-none">
         <Diagnostics />

@@ -4,7 +4,7 @@ import { ApiError } from "../api/client";
 import { usePrice } from "../hooks/usePrice";
 import { formatNumber } from "../lib/format";
 import { usePin } from "../hooks/usePin";
-import { useInputs } from "../state/inputs";
+import { PRODUCT_LABEL, useInputs } from "../state/inputs";
 import { CompareBar } from "./CompareBar";
 
 function Stat({ label, value, unit }: { label: string; value: ReactNode; unit?: string | undefined }) {
@@ -40,8 +40,9 @@ export function Headline() {
         <div>
           <div className="flex items-center gap-3 text-[12px] text-fg-muted">
             <span>
-              European {inputs.optionType} · K {formatNumber(inputs.strike, 2)} · {inputs.expiry} ·{" "}
-              {inputs.model === "bsm" ? "BSM" : "Black-76"}
+              {PRODUCT_LABEL[inputs.productType]} {inputs.optionType} · K {formatNumber(inputs.strike, 2)}
+              {inputs.productType === "digital" ? ` · pays ${formatNumber(inputs.payout, 2)}` : ""} · {inputs.expiry} ·{" "}
+              {inputs.model === "bsm" ? `BSM (${inputs.dividendTreatment})` : "Black-76"}
             </span>
             <button
               type="button"
@@ -69,7 +70,7 @@ export function Headline() {
           <Stat label="Position value" value={r ? formatNumber(r.position_value, 2) : "—"} unit={r?.currency} />
           <Stat label="% of notional" value={r ? formatNumber(r.pct_notional, 3) : "—"} unit="%" />
           <Stat label="Method" value={<span className="font-sans">{r?.diagnostics.method_label ?? "—"}</span>} />
-          <Stat label="Engine runtime" value={r ? formatNumber(r.diagnostics.runtime_ms, 2) : "—"} unit="ms" />
+          <Stat label="Engine CPU" value={r ? formatNumber(r.diagnostics.runtime_ms, 2) : "—"} unit="ms" />
         </div>
       </div>
       <div className={`grid grid-cols-3 gap-6 border-t border-line bg-surface-2/60 px-5 py-2.5 ${dim}`}>

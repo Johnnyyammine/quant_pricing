@@ -1,4 +1,6 @@
 import type {
+  CompareRequest,
+  CompareResponse,
   HeatmapRequest,
   HeatmapResponse,
   ImpliedVolRequest,
@@ -62,6 +64,9 @@ export const postProfile = (req: ProfileRequest, signal?: AbortSignal) =>
 
 export const postHeatmap = (req: HeatmapRequest, signal?: AbortSignal) =>
   post<HeatmapResponse>("/api/heatmap", req, signal);
+
+export const postCompare = (req: CompareRequest, signal?: AbortSignal) =>
+  post<CompareResponse>("/api/compare", req, signal);
 
 export const postImpliedVol = (req: ImpliedVolRequest, signal?: AbortSignal) =>
   post<ImpliedVolResponse>("/api/implied-vol", req, signal);

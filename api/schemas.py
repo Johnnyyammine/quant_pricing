@@ -271,7 +271,7 @@ class DiagnosticsOut(_Schema):
     method: str
     method_label: str
     model: str
-    runtime_ms: float = Field(description="Engine wall-clock time for price and greeks, ms")
+    runtime_ms: float = Field(description="Engine CPU time for price and greeks, ms")
     revaluations: int
     settings: SettingsIn
     details: dict[str, float | int | str]
@@ -364,7 +364,7 @@ class ExerciseBoundary(_Schema):
     """PDE early-exercise boundary: exercise when spot is beyond ``spot`` at ``days``."""
 
     days: list[float] = Field(description="Days from the valuation date")
-    spot: list[float]
+    spot: list[float | None] = Field(description="Critical spot S*; null where not exercised")
 
 
 class CompareResponse(_Schema):

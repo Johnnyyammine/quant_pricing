@@ -15,6 +15,8 @@ import { Segmented } from "./Segmented";
 import { MiniSelect, Toolbar, ToolbarItem, ViewNote } from "./Toolbar";
 
 const POINTS = 101;
+/** Time profiles revalue once per date: numerical methods sample fewer dates to stay responsive. */
+const TIME_POINTS_NUMERICAL = 21;
 const TIME_SPOT_SHIFTS = [-10, 0, 10];
 
 const METRICS: { value: ProfileMetric; label: string }[] = [
@@ -65,7 +67,8 @@ export function Profiles() {
     (pricing: ProfileRequest["pricing"], primaryOnly: boolean): ProfileRequest => ({
       pricing,
       axis,
-      points: POINTS,
+      points: axis === "time" && pricing.method !== "analytic" ? TIME_POINTS_NUMERICAL : POINTS,
+      greeks: metric === "value" ? [] : [metric],
       spot_range_pct: rangePct,
       horizons_days: primaryOnly ? [0] : horizons(metric, days),
       spot_shifts_pct: primaryOnly ? [0] : TIME_SPOT_SHIFTS,

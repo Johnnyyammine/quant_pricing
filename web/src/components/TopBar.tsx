@@ -1,3 +1,4 @@
+import { PRODUCT_LABEL, useInputs } from "../state/inputs";
 import { useUi, type ThemePref } from "../state/ui";
 import { MOD_LABEL } from "../lib/platform";
 import { LogoMark, SearchIcon } from "./icons";
@@ -10,6 +11,7 @@ const THEMES = [
 ] as const satisfies readonly { value: ThemePref; label: string }[];
 
 export function TopBar() {
+  const product = useInputs((s) => s.inputs.productType);
   const theme = useUi((s) => s.theme);
   const setTheme = useUi((s) => s.setTheme);
   const setPaletteOpen = useUi((s) => s.setPaletteOpen);
@@ -19,7 +21,7 @@ export function TopBar() {
         <LogoMark />
         <span className="text-[13px] font-semibold tracking-tight">Quant Pricer</span>
         <span className="text-line-strong">/</span>
-        <span className="text-[12.5px] text-fg-muted">European option</span>
+        <span className="text-[12.5px] text-fg-muted">{PRODUCT_LABEL[product]} option</span>
       </div>
       <div className="flex items-center gap-3">
         <button

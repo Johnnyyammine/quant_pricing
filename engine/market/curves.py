@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import bisect
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from engine.errors import MarketDataError
@@ -87,6 +87,8 @@ class ZeroCurve:
 
     times: tuple[float, ...]
     zero_rates: tuple[float, ...]
+    _knots_t: tuple[float, ...] = field(init=False, repr=False, compare=False)
+    _knots_l: tuple[float, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.times or len(self.times) != len(self.zero_rates):
@@ -94,6 +96,10 @@ class ZeroCurve:
         increasing = all(b > a for a, b in zip(self.times, self.times[1:], strict=False))
         if self.times[0] <= 0.0 or not increasing:
             raise MarketDataError("zero curve pillar times must be positive and increasing")
+        # Knots of ln P, computed once: (0, 0) and (t_i, −z_i·t_i).
+        object.__setattr__(self, "_knots_t", (0.0, *self.times))
+        logs = (-z * t for z, t in zip(self.zero_rates, self.times, strict=True))
+        object.__setattr__(self, "_knots_l", (0.0, *logs))
 
     def _segment(self, t: float) -> tuple[float, float, float]:
         """``(t₀, ln P(0,t₀), f)`` of the right-continuous segment containing ``t``.
@@ -102,8 +108,7 @@ class ZeroCurve:
         each segment. Negative ``t`` (backward rolls) uses the first segment; ``t`` beyond the
         last pillar extends the last segment.
         """
-        knots_t = (0.0, *self.times)
-        knots_l = (0.0, *(-z * t for z, t in zip(self.zero_rates, self.times, strict=True)))
+        knots_t, knots_l = self._knots_t, self._knots_l
         i = min(max(bisect.bisect_right(knots_t, t), 1), len(knots_t) - 1)
         t0, t1 = knots_t[i - 1], knots_t[i]
         l0, l1 = knots_l[i - 1], knots_l[i]

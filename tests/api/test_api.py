@@ -277,7 +277,9 @@ def test_compare_american(client):
     assert len(tree["convergence"]) >= 5
     assert tree["resolution"] == 401
     assert body["boundary"]["days"]
-    assert all(s < 105.0 for s in body["boundary"]["spot"])
+    spots = [s for s in body["boundary"]["spot"] if s is not None]
+    assert spots
+    assert all(s < 105.0 for s in spots)
 
 
 def test_settings_round_trip(client):

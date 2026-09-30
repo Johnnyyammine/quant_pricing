@@ -231,7 +231,7 @@
             "type": "integer"
           },
           "runtime_ms": {
-            "description": "Engine wall-clock time for price and greeks, ms",
+            "description": "Engine CPU time for price and greeks, ms",
             "title": "Runtime Ms",
             "type": "number"
           },
@@ -443,8 +443,16 @@
             "type": "array"
           },
           "spot": {
+            "description": "Critical spot S*; null where not exercised",
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Spot",
             "type": "array"

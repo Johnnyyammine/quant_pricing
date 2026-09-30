@@ -64,7 +64,7 @@ class PdeSolution:
     values: np.ndarray
     dynamics: StateDynamics
     boundary_t: list[float]
-    boundary_s: list[float]
+    boundary_s: list[float]  # nan where early exercise is not optimal on the grid
     time_nodes: int
     max_penalty_iterations: int
 
@@ -230,11 +230,16 @@ def solve(
         if exercise is not None:
             v = np.maximum(v, exercise)
             s_nodes = dyn.spot_affine(t0, cum=True)
+            # Interior exercise region only: the Dirichlet rows always sit on the payoff deep in the
+            # money, which is not evidence of optimal exercise.
             exercised = (v - exercise <= 1e-9 * k) & (exercise > 0.0)
+            exercised[:2] = exercised[-2:] = False
+            boundary_t.append(t0)
             if np.any(exercised):
                 s_ex = s_nodes[0] * states[exercised] + s_nodes[1]
-                boundary_t.append(t0)
                 boundary_s.append(float(np.max(s_ex) if omega < 0 else np.min(s_ex)))
+            else:
+                boundary_s.append(math.nan)
 
     return PdeSolution(
         x=x,

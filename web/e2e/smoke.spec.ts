@@ -34,7 +34,7 @@ test("command palette switches product", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+k");
   const input = page.getByPlaceholder("Type a command…");
   await expect(input).toBeVisible();
-  await input.fill("european put");
+  await input.fill("product put");
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Result")).toContainText("European put");
 });
@@ -104,6 +104,59 @@ test("diagnostics cross-checks analytic greeks against bumps", async ({ page }) 
   await page.getByRole("tab", { name: "Diagnostics" }).click();
   await expect(page.getByText("Greek check · analytic vs bump")).toBeVisible();
   await expect(page.getByText("σ (at strike, expiry)")).toBeVisible();
+});
+
+test("american option switches to a numerical method and shows methods side by side", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("radiogroup", { name: "Product type" }).getByRole("radio", { name: "American" }).click();
+  await page.getByRole("radiogroup", { name: "Option type" }).getByRole("radio", { name: "Put" }).click();
+  await expect(page.locator("#method")).toHaveValue("cn_pde");
+  await expect(page.getByLabel("Result")).toContainText("American put");
+  await page.getByRole("tab", { name: "Methods" }).click();
+  const table = page.getByTestId("methods-table");
+  await expect(table).toContainText("LR tree", { timeout: 20_000 });
+  await expect(table).toContainText("CN PDE");
+  await expect(table).toContainText("does not price AmericanOption");
+  await expect(page.getByTestId("exercise-premium")).toContainText("Early-exercise premium");
+});
+
+test("digital shows a payout and reports greek smoothing", async ({ page }) => {
+  await settledPrice(page);
+  await page.getByRole("radiogroup", { name: "Product type" }).getByRole("radio", { name: "Digital" }).click();
+  await expect(page.locator("#payout")).toBeVisible();
+  await expect(page.getByLabel("Result")).toContainText("Digital call");
+  await page.getByRole("tab", { name: "Diagnostics" }).click();
+  await expect(page.getByText("Smoothing bias (replica − exact)")).toBeVisible();
+});
+
+test("rate curve pillars reprice", async ({ page }) => {
+  const before = await settledPrice(page);
+  await page.locator("#rate").locator("xpath=../../..").getByRole("button", { name: "Curve" }).click();
+  // A 1Y option only sees the curve up to 1Y (log-linear discount factors): the 5Y pillar is inert.
+  const five = page.getByLabel("Rate pillar 4 rate");
+  await five.focus();
+  await five.press("Shift+ArrowUp");
+  await expect(price(page)).toHaveText(before);
+  const one = page.getByLabel("Rate pillar 2 rate");
+  await one.focus();
+  await one.press("Shift+ArrowUp"); // 1Y pillar +0.5%
+  await expect(price(page)).not.toHaveText(before);
+});
+
+test("a cash dividend lowers the forward; spot jumps need the PDE", async ({ page }) => {
+  await settledPrice(page);
+  const forward = page
+    .getByLabel("Result")
+    .getByText(/^\d+\.\d{4}$/)
+    .first();
+  const fwdBefore = await forward.textContent();
+  await page.getByRole("button", { name: "+ Add dividend" }).click();
+  await expect(forward).not.toHaveText(fwdBefore ?? "");
+  await page.locator("#dividend-treatment").selectOption("spot");
+  const alert = page.getByLabel("Result").getByRole("alert");
+  await expect(alert).toContainText("PDE");
+  await page.locator("#method").selectOption("cn_pde");
+  await expect(alert).toBeHidden();
 });
 
 for (const theme of ["light", "dark"] as const) {

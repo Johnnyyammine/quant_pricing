@@ -333,7 +333,8 @@ def compare(req: CompareRequest) -> CompareResponse:
         if market.time_to(inst.expiry) > 0.0:
             sol = solve(inst, market, model, c.settings.pde, [market.spot])
             boundary = ExerciseBoundary(
-                days=[t * DAYS_PER_YEAR_ACT365F for t in sol.boundary_t], spot=sol.boundary_s
+                days=[t * DAYS_PER_YEAR_ACT365F for t in sol.boundary_t],
+                spot=[None if math.isnan(s) else s for s in sol.boundary_s],
             )
     return CompareResponse(
         currency=inst.currency, methods=rows, european_price=european, boundary=boundary

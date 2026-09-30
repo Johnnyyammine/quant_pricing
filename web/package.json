@@ -11,7 +11,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts",
+    "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts --default-non-nullable=false",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

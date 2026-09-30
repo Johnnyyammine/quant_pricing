@@ -8,6 +8,8 @@ O(h²) correction |V_2N − V_N| of the reference (plus a round-off floor).
 """
 
 import datetime as dt
+import itertools
+import math
 from dataclasses import replace
 
 import pytest
@@ -282,12 +284,33 @@ def test_american_call_without_dividends_is_european():
 
 def test_put_exercise_boundary_is_below_strike_and_rises_to_it():
     sol = solve(opt(AmericanOption), mkt(), BSM, PdeSettings(), [100.0])
-    assert sol.boundary_t
-    assert all(s < 110.0 for s in sol.boundary_s)
-    # The put boundary rises (weakly, up to grid resolution) towards expiry.
-    step = sol.boundary_s[-1] * (sol.x[1] - sol.x[0])
-    assert all(b >= a - 2 * step for a, b in zip(sol.boundary_s, sol.boundary_s[1:], strict=False))
-    assert sol.boundary_s[-1] > 0.95 * 110.0
+    boundary = [s for s in sol.boundary_s if not math.isnan(s)]
+    assert boundary
+    assert all(s < 110.0 for s in boundary)
+    # Without discrete dividends the put boundary rises (weakly, up to grid resolution) to expiry.
+    step = boundary[-1] * (sol.x[1] - sol.x[0])
+    assert all(b >= a - 2 * step for a, b in itertools.pairwise(boundary))
+    assert boundary[-1] > 0.95 * 110.0
+
+
+def test_put_is_not_exercised_just_before_a_large_cash_dividend():
+    m = mkt(divs=[Dividend(VAL + dt.timedelta(days=180), 5.0)])
+    sol = solve(opt(AmericanOption, strike=100.0), m, BSM, PdeSettings(), [100.0])
+    t_div = 180 / 365
+    before = [
+        s
+        for t, s in zip(sol.boundary_t, sol.boundary_s, strict=True)
+        if t_div - 10 / 365 < t < t_div
+    ]
+    after = [
+        s
+        for t, s in zip(sol.boundary_t, sol.boundary_s, strict=True)
+        if t_div < t < t_div + 10 / 365
+    ]
+    # Waiting for the dividend drop dominates: the boundary collapses (or vanishes) before it.
+    lo_before = min((s for s in before if not math.isnan(s)), default=0.0)
+    hi_after = max(s for s in after if not math.isnan(s))
+    assert lo_before < hi_after
 
 
 def test_pde_ladder_is_consistent_with_single_evaluation():

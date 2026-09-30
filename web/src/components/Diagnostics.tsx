@@ -30,6 +30,15 @@ function Row({ k, v, unit }: { k: string; v: ReactNode; unit?: string }) {
 }
 
 const DETAIL_LABELS: Record<string, { label: string; unit?: string; scale?: number; dp: number }> = {
+  steps: { label: "Tree steps", dp: 0 },
+  dividend_treatment: { label: "Dividend treatment", dp: 0 },
+  space_nodes: { label: "PDE space nodes", dp: 0 },
+  time_nodes: { label: "PDE time nodes (incl. ex-dates)", dp: 0 },
+  dx: { label: "Δx (log-state)", dp: 6 },
+  max_penalty_iterations: { label: "Max penalty iterations / step", dp: 0 },
+  spread_width: { label: "Digital spread width", dp: 4 },
+  replica_value: { label: "Call-spread replica value", dp: 6 },
+  smoothing_bias: { label: "Smoothing bias (replica − exact)", dp: 6 },
   sigma: { label: "σ (at strike, expiry)", unit: "%", scale: 100, dp: 4 },
   forward: { label: "F(0,T)", dp: 6 },
   discount_factor: { label: "P(0,T)", dp: 8 },
@@ -101,6 +110,105 @@ function GreekCheck() {
   );
 }
 
+/** Numerical-method settings: every grid size is visible and editable here. */
+function NumericalSettingsCard() {
+  const n = useInputs((s) => s.inputs.numerical);
+  const setNumerical = useInputs((s) => s.setNumerical);
+  const odd = (v: number) => (Math.round(v) % 2 === 0 ? Math.round(v) + 1 : Math.round(v));
+  return (
+    <Card title="Numerical settings">
+      <NumericField
+        id="tree-steps"
+        label="Tree steps"
+        value={n.treeSteps}
+        onChange={(v) => {
+          setNumerical("treeSteps", odd(v));
+        }}
+        step={100}
+        dp={0}
+        min={3}
+        max={20001}
+        help={{ title: "Leisen–Reimer steps", definition: "Odd number of time steps. Error ≈ O(n⁻²) for Europeans." }}
+      />
+      <NumericField
+        id="pde-space"
+        label="PDE nodes"
+        value={n.pdeSpaceNodes}
+        onChange={(v) => {
+          setNumerical("pdeSpaceNodes", Math.round(v));
+        }}
+        step={100}
+        dp={0}
+        min={20}
+        max={20000}
+        help={{ title: "PDE space nodes", definition: "Uniform in log-state, ±5σ√T around ln K, strike on a node." }}
+      />
+      <NumericField
+        id="pde-time"
+        label="PDE steps"
+        value={n.pdeTimeSteps}
+        onChange={(v) => {
+          setNumerical("pdeTimeSteps", Math.round(v));
+        }}
+        step={50}
+        dp={0}
+        min={4}
+        max={20000}
+        help={{
+          title: "PDE time steps",
+          definition: "Crank–Nicolson with Rannacher start-up; ex-dates are added as extra nodes.",
+        }}
+      />
+      <NumericField
+        id="digital-width"
+        label="Digital width"
+        value={n.digitalWidthPct}
+        onChange={(v) => {
+          setNumerical("digitalWidthPct", v);
+        }}
+        step={0.25}
+        dp={2}
+        min={0}
+        max={49}
+        unit="% K"
+        help={{
+          title: "Digital greek smoothing",
+          definition: "Greeks from a centred call spread of this width (price stays exact). 0 = exact digital greeks.",
+        }}
+      />
+      <NumericField
+        id="chart-tree"
+        label="Chart tree"
+        value={n.scenarioTreeSteps}
+        onChange={(v) => {
+          setNumerical("scenarioTreeSteps", odd(v));
+        }}
+        step={50}
+        dp={0}
+        min={3}
+        max={20001}
+        help={{
+          title: "Chart resolution",
+          definition: "Tree steps used by profiles and heatmaps (headline uses the full setting).",
+        }}
+      />
+      <NumericField
+        id="chart-pde"
+        label="Chart PDE"
+        value={n.scenarioPdeSpaceNodes}
+        onChange={(v) => {
+          setNumerical("scenarioPdeSpaceNodes", Math.round(v));
+        }}
+        step={50}
+        dp={0}
+        min={20}
+        max={20000}
+        help={{ title: "Chart resolution", definition: "PDE space nodes used by profiles and heatmaps." }}
+      />
+    </Card>
+  );
+}
+
 export function Diagnostics() {
   const { data } = usePrice();
   const bumps = useInputs((s) => s.inputs.bumps);
@@ -112,9 +220,9 @@ export function Diagnostics() {
       <Card title="Run">
         <Row k="Method" v={<span className="font-sans">{d?.method_label ?? "—"}</span>} />
         <Row k="Model" v={<span className="font-sans">{d?.model ?? "—"}</span>} />
-        <Row k="Engine time" v={d ? formatNumber(d.runtime_ms, 3) : "—"} unit="ms" />
+        <Row k="Engine CPU time" v={d ? formatNumber(d.runtime_ms, 3) : "—"} unit="ms" />
         <Row k="Round trip" v={data ? formatNumber(data.roundTripMs, 1) : "—"} unit="ms" />
-        <Row k="Revaluations" v={d?.revaluations ?? "—"} />
+        <Row k="Bump stencil points" v={d?.revaluations ?? "—"} />
         {d?.warnings.map((w) => (
           <p key={w} className="mt-2 text-[12px] text-warn">
             {w}
@@ -182,6 +290,7 @@ export function Diagnostics() {
           help={{ title: "Time bump h_t", definition: "Valuation-date roll for Θ and charm, calendar days." }}
         />
       </Card>
+      <NumericalSettingsCard />
       <Card title="Method details">
         {d && Object.keys(d.details).length ? (
           Object.entries(d.details).map(([k, v]) => {

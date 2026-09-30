@@ -60,9 +60,9 @@ def convergence(
         return []
     out = []
     for n, s in runs:
-        t0 = time.perf_counter()
+        t0 = time.thread_time()
         v = price(instrument, market, model, method, s, greeks=()).price
-        out.append(ConvergencePoint(n, v, (time.perf_counter() - t0) * 1e3))
+        out.append(ConvergencePoint(n, v, (time.thread_time() - t0) * 1e3))
     return out
 
 
