@@ -6,11 +6,11 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 from engine.instruments.base import Instrument
+from engine.methods.analytic import AnalyticBlack
 from engine.methods.base import PricingMethod
-from engine.methods.intrinsic import ForwardIntrinsic
 from engine.models.base import Model
 
-METHODS: Mapping[str, PricingMethod] = MappingProxyType({m.name: m for m in (ForwardIntrinsic(),)})
+METHODS: Mapping[str, PricingMethod] = MappingProxyType({m.name: m for m in (AnalyticBlack(),)})
 
 
 def get_method(name: str) -> PricingMethod:

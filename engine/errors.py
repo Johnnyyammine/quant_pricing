@@ -13,3 +13,15 @@ class UnsupportedCombinationError(PricingError):
 
 class MarketDataError(PricingError):
     """Market data is missing, inconsistent or outside its domain."""
+
+
+class ImpliedVolError(PricingError):
+    """No implied volatility exists for the given price."""
+
+
+class BelowIntrinsicError(ImpliedVolError):
+    """Price is below intrinsic value (no non-negative volatility reproduces it)."""
+
+
+class AboveMaximumError(ImpliedVolError):
+    """Price is at or above the model maximum (forward for a call, strike for a put)."""

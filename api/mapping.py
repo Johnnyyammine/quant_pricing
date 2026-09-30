@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
+
 from api.schemas import (
     BumpSettingsIn,
     DiagnosticsOut,
     EuropeanOptionIn,
     GreekOut,
     GreeksOut,
+    ImpliedVolSettingsIn,
     MarketIn,
     ModelIn,
     PriceResponse,
@@ -19,10 +22,11 @@ from engine.market.market_data import MarketData
 from engine.market.vol import FlatVolSurface
 from engine.methods.base import PricingMethod
 from engine.models.base import Model
+from engine.models.black76 import Black76
 from engine.models.black_scholes import BlackScholesMerton
-from engine.results import PricingResult
+from engine.results import Greek, Greeks, PricingResult
 from engine.risk.units import GreekMode, desk_greeks
-from engine.settings import BumpSettings, PricingSettings
+from engine.settings import BumpSettings, ImpliedVolSettings, PricingSettings
 
 
 def to_instrument(x: EuropeanOptionIn) -> EuropeanOption:
@@ -53,6 +57,8 @@ def to_model(x: ModelIn) -> Model:
     match x.type:
         case "bsm":
             return BlackScholesMerton()
+        case "black76":
+            return Black76()
 
 
 def to_settings(x: SettingsIn) -> PricingSettings:
@@ -61,7 +67,9 @@ def to_settings(x: SettingsIn) -> PricingSettings:
     return PricingSettings(
         bumps=BumpSettings(
             spot_rel=b.spot_rel, vol_abs=b.vol_abs, rate_abs=b.rate_abs, time_days=b.time_days
-        )
+        ),
+        implied_vol=ImpliedVolSettings(max_iterations=x.implied_vol.max_iterations),
+        force_bump_greeks=x.force_bump_greeks,
     )
 
 
@@ -71,41 +79,58 @@ def from_settings(s: PricingSettings) -> SettingsIn:
     return SettingsIn(
         bumps=BumpSettingsIn(
             spot_rel=b.spot_rel, vol_abs=b.vol_abs, rate_abs=b.rate_abs, time_days=b.time_days
-        )
+        ),
+        implied_vol=ImpliedVolSettingsIn(max_iterations=s.implied_vol.max_iterations),
+        force_bump_greeks=s.force_bump_greeks,
     )
+
+
+def greeks_out(greeks: Greeks | None, spot: float, instrument: EuropeanOption) -> GreeksOut:
+    """Greeks in desk units, both modes."""
+    if greeks is None:
+        return GreeksOut(pure=[], cash=[])
+
+    def mode(m: GreekMode) -> list[GreekOut]:
+        return [
+            GreekOut(key=g.greek, value=g.value, unit=g.unit, source=g.source)
+            for g in desk_greeks(greeks, spot, instrument.quantity, instrument.currency, m)
+        ]
+
+    return GreeksOut(pure=mode(GreekMode.PURE), cash=mode(GreekMode.CASH))
+
+
+def desk_values(
+    greeks: Greeks | None, spot: float, instrument: EuropeanOption, mode: GreekMode
+) -> dict[Greek, float]:
+    """Desk-unit greek values keyed by greek (``nan`` if absent)."""
+    if greeks is None:
+        return dict.fromkeys(Greek, math.nan)
+    return {
+        g.greek: g.value
+        for g in desk_greeks(greeks, spot, instrument.quantity, instrument.currency, mode)
+    }
 
 
 def to_price_response(
     result: PricingResult,
     instrument: EuropeanOption,
     market: MarketData,
+    model: Model,
     method: PricingMethod,
 ) -> PriceResponse:
     """Serialise a pricing result with desk-unit greeks in both modes."""
     t = market.time_to(instrument.maturity)
-    greeks = GreeksOut(pure=[], cash=[])
-    if result.greeks is not None:
-        greeks = GreeksOut(
-            **{
-                mode.value: [
-                    GreekOut(key=g.greek, value=g.value, unit=g.unit, source=g.source)
-                    for g in desk_greeks(
-                        result.greeks, market.spot, instrument.quantity, instrument.currency, mode
-                    )
-                ]
-                for mode in GreekMode
-            }
-        )
     d = result.diagnostics
     return PriceResponse(
         currency=instrument.currency,
         price=result.price,
         position_value=result.price * instrument.quantity,
         pct_notional=100.0 * result.price / market.spot,
-        forward=market.forward(t),
+        notional=instrument.quantity * market.spot,
+        forward=model.forward(market, t),
         discount_factor=market.df(t),
         time_to_expiry=t,
-        greeks=greeks,
+        greeks=greeks_out(result.greeks, market.spot, instrument),
         diagnostics=DiagnosticsOut(
             method=d.method,
             method_label=method.label,

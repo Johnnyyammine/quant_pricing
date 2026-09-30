@@ -54,7 +54,11 @@ def price(
     revaluations = 1
     warnings: tuple[str, ...] = ()
     if greeks:
-        analytic = method.analytic_greeks(instrument, market, model, settings)
+        analytic = (
+            {}
+            if settings.force_bump_greeks
+            else method.analytic_greeks(instrument, market, model, settings)
+        )
         values: dict[Greek, float] = {g: analytic[g] for g in greeks if g in analytic}
         sources = dict.fromkeys(values, GreekSource.ANALYTIC)
         missing = [g for g in greeks if g not in analytic]

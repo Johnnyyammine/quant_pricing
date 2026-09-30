@@ -1,12 +1,10 @@
 # Docs
 
 There is one short note per model and method. Each covers formulas, conventions, references,
-validation and known limitations.
+validation with tolerances, and known limitations.
 
 - [`conventions.md`](conventions.md): day count, forwards, units, greek definitions, settings.
+- [`models/black_scholes.md`](models/black_scholes.md): BSM and Black-76, closed-form greeks.
+- [`methods/analytic.md`](methods/analytic.md): the analytic method and its greek coverage.
 - [`methods/bump_and_revalue.md`](methods/bump_and_revalue.md): generic finite-difference greeks.
-
-Notes planned for Phase 1:
-- `models/black_scholes.md`
-- `methods/analytic.md`
-- `calibration/implied_vol.md` (Let's Be Rational)
+- [`calibration/implied_vol.md`](calibration/implied_vol.md): Let's Be Rational.

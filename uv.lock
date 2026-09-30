@@ -105,6 +105,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cody-special"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/d2/98a4c5409f66d021c590102c5839434dd1880d36a248a2d61342976cfaff/cody_special-1.0.0.tar.gz", hash = "sha256:795f9268155b845310855f76d9a0d63dabb6fe5f1c3d3fc10814b38eefa5d537", size = 7047, upload-time = "2026-01-13T06:29:05.747Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/11/89/2d787764e8fdc1302d2989a4bef5812e1af8bc6773f58d1a742fe8cfe5a5/cody_special-1.0.0-py3-none-any.whl", hash = "sha256:a871562b9cdfb7826ec514c90d8dec175704e58ccffa0341f45194e6d4fc6102", size = 8952, upload-time = "2026-01-13T06:29:04.534Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -305,6 +314,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mpmath"
+version = "1.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/b0/6de8e78014ff1842a90cc9a56da6ccfb598a5390ed0257fcdb7d9680c18b/mpmath-1.4.1.tar.gz", hash = "sha256:efd6d1b75f09d69524a67609949812668b28e81ecbfe0ab449ced8c13e92642e", size = 2093211, upload-time = "2026-03-15T01:17:38.245Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl", hash = "sha256:dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f", size = 567787, upload-time = "2026-03-15T01:17:36.392Z" },
+]
+
+[[package]]
 name = "mypy"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -364,6 +382,18 @@ wheels = [
 ]
 
 [[package]]
+name = "numpy-typing-compat"
+version = "20260602.2.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/08/db/5cd1d99caea4bf39fd477686ded4b9b70dff3c7673b5d84ef2d96a4f5aab/numpy_typing_compat-20260602.2.5.tar.gz", hash = "sha256:1885a678e9a24564839ed5d1711c0031735fb7de7f0b5ed88d550e5d45a8d4f9", size = 4593, upload-time = "2026-06-02T15:52:39.331Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/a4/9376b38b7387a0296b1f626b966e5503578625c9673777db1b45bf70acb0/numpy_typing_compat-20260602.2.5-py3-none-any.whl", hash = "sha256:21ba7757c8924d359a9ed3ab2163c282a70983ae64498fdba6d1892a6641c8b1", size = 5881, upload-time = "2026-06-02T15:52:34.167Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.45.0"
 source = { registry = "https://pypi.org/simple" }
@@ -373,6 +403,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1f/dc/e12c1fe1ed8a7b7149777127b1a0e12ce5bd5a81d97408bedc2128c260f5/opentelemetry_api-1.45.0.tar.gz", hash = "sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7", size = 72115, upload-time = "2026-09-25T12:32:28.399Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/44/b9/040d1a1c7836922828e6480cd2366bb8fe0ebf75b413d2bb51a9b0e7f78f/opentelemetry_api-1.45.0-py3-none-any.whl", hash = "sha256:80e068aba7cd56c8b58512d6a36f8d25cb1dfaa0c0a4cc1c938ccf9f362d9cb3", size = 60020, upload-time = "2026-09-25T12:32:03.192Z" },
+]
+
+[[package]]
+name = "optype"
+version = "0.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/99/51/51dc9b1009e020f44703933d4d1ee3429c647c026ce7806b37ee2b257998/optype-0.18.0.tar.gz", hash = "sha256:ea10dee61b15ca299ed0d97025d362585c4dfc5481159bb999a1d0d414bbcb04", size = 59967, upload-time = "2026-06-07T22:13:17.534Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/91/2b064a117cb2593bc3eb04ee994134ca2a6bf2162c92961769947e3258cc/optype-0.18.0-py3-none-any.whl", hash = "sha256:91822ed8516e7a4f225ba53d30f291776c35f31553fb952d7cda98286679c5a6", size = 73410, upload-time = "2026-06-07T22:13:16.324Z" },
+]
+
+[package.optional-dependencies]
+numpy = [
+    { name = "numpy" },
+    { name = "numpy-typing-compat" },
 ]
 
 [[package]]
@@ -391,6 +439,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+]
+
+[[package]]
+name = "piecewise-rational"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/48/97b958909077335ffdfbb5eae12c4125d2fcfd0fa0cac45c8f451ee1be5e/piecewise_rational-1.0.0.tar.gz", hash = "sha256:d6d9d9022b78fa689ac4a62045401c6d0489ca69c94ce55befe045e0bfd4d6da", size = 4102, upload-time = "2026-01-13T06:30:04.475Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/0b/7b20d417bcdea2f0ad0b2cac966d48ba03181a607977c5a4de8276b9eee9/piecewise_rational-1.0.0-py3-none-any.whl", hash = "sha256:7a972b0b9bb45acc78f1c8bc9a26575c002c79bee8da5811783890d9ed5902ed", size = 5501, upload-time = "2026-01-13T06:30:03.25Z" },
 ]
 
 [[package]]
@@ -434,6 +491,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/dc/97/a8b1ddada14c8280a047c0746f95cb05d94a31b1a331cea22bcdc2b2a82d/py_cpuinfo2-10.1.1.tar.gz", hash = "sha256:7861133863663f16e06eca63b12904ef100b5760415e92372dac0162799a4771", size = 100840, upload-time = "2026-03-25T21:49:40.797Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/23/0a/ba69d2dde1ae12ef1d389ea5a216384c5ff6ef7a1e7a48d1e9b6686f6790/py_cpuinfo2-10.1.1-py3-none-any.whl", hash = "sha256:adc53396bfb206e6498d078ec2ab407f85799ecd819584ac36a8f80a2d4d762d", size = 23791, upload-time = "2026-03-25T21:49:39.574Z" },
+]
+
+[[package]]
+name = "py-lets-be-rational"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cody-special" },
+    { name = "numpy" },
+    { name = "piecewise-rational" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/93/34/65aae0e922de66ac4c0de4fa4ffbc44534f9c6a9d6a06f684b87d523e45e/py_lets_be_rational-1.1.2.tar.gz", hash = "sha256:2c4980eb7df97023c8b9918e8086d7d39a33304962e121212c580322cc7f4553", size = 13474, upload-time = "2026-05-30T01:47:29.639Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/ed/16feed5f9af7516acfdc40b2cd47edf6591f8c98b8006d53292584b1b004/py_lets_be_rational-1.1.2-py3-none-any.whl", hash = "sha256:d4f489fdb5e9d1b7d6a3757331f905aab712a2cd4d97ebc77f51dcccf5bf08fb", size = 18271, upload-time = "2026-05-30T01:47:27.572Z" },
 ]
 
 [[package]]
@@ -574,11 +645,15 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "hypothesis" },
+    { name = "mpmath" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "py-lets-be-rational" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
+    { name = "quantlib" },
     { name = "ruff" },
+    { name = "scipy-stubs" },
 ]
 
 [package.metadata]
@@ -594,11 +669,32 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "hypothesis", specifier = ">=6.120" },
+    { name = "mpmath", specifier = ">=1.4.1" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pre-commit", specifier = ">=4.0" },
+    { name = "py-lets-be-rational", specifier = ">=1.1.2" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-benchmark", specifier = ">=5.1" },
+    { name = "quantlib", specifier = ">=1.43" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "scipy-stubs", specifier = ">=1.18.1.1" },
+]
+
+[[package]]
+name = "quantlib"
+version = "1.43"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/c4/b9b978248104e7ac7b0fb459c98d48fe3ce6137446cee56cfe0faee3aaf0/quantlib-1.43-cp39-abi3-macosx_10_13_x86_64.whl", hash = "sha256:cf113464f75500c3f67ec7a6865b9dee1082650b37943a45974d83d9b29a32b1", size = 16190279, upload-time = "2026-07-14T08:40:49.653Z" },
+    { url = "https://files.pythonhosted.org/packages/be/20/15f75418eeee6646869815ccd1a666ed15b8a7eda6367837a78b93c3079f/quantlib-1.43-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:85d70b28778afca84b9b6ae74ef05a1069b2dca00e80fc74aa8ddf438259dc0c", size = 15553889, upload-time = "2026-07-14T08:40:52.641Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/57/c6b320e72e145de00a124a2af1e001e318873bb9560093a465b791ff0e30/quantlib-1.43-cp39-abi3-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:3c0ec04adb19660a029d2095609f5a8add1541b1d2bb14a990665738c911770e", size = 19071666, upload-time = "2026-07-14T08:40:55.682Z" },
+    { url = "https://files.pythonhosted.org/packages/70/00/6a6358ef7b9d9fd97c8dfddb30f719a5304ace171676ba54176826393b2c/quantlib-1.43-cp39-abi3-manylinux_2_24_i686.manylinux_2_28_i686.whl", hash = "sha256:9d028659a2557d549766bcebb346a9cacae0b3514bf205ddefadb64f9330bbb4", size = 23725989, upload-time = "2026-07-14T08:40:58.898Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/39/2df89a3f4fe6668535d7c56f29ee646f7642e46b7fc6a9db1707804c7520/quantlib-1.43-cp39-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:35cd2c178aa9a30c3b7a9ca050536037c3185afd6728e6a1cf2085adef54464e", size = 20376095, upload-time = "2026-07-14T08:41:02.15Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/c4/4aa663f627e01d6814cba8ec721bd5f3df42906f7b07785a13f2061c540d/quantlib-1.43-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:f21eaf656ea5bd26e023a402eda81a6b66338c7a3d1f3dfef3894f05312f7ac6", size = 20680647, upload-time = "2026-07-14T08:41:05.358Z" },
+    { url = "https://files.pythonhosted.org/packages/77/a1/dabec80c079c7369b20709f1f4a98ce832d02ffb7daa9bee62714cbe2b48/quantlib-1.43-cp39-abi3-musllinux_1_2_i686.whl", hash = "sha256:c2d1680e1bb28bc58fe9d5cd1a966382cc490264368cc77300c9c9a381416d7e", size = 25689090, upload-time = "2026-07-14T08:41:08.65Z" },
+    { url = "https://files.pythonhosted.org/packages/00/81/37e8df4623b470fbded9241c1d99973863fbc0913cfe9e717f313063dbf7/quantlib-1.43-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:f9c620de81c8bea76b7bd82a190fdf0393f18812a2c2529351fabc7338b6b3c1", size = 21839501, upload-time = "2026-07-14T08:41:12.093Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/46/e7ab24781ad101616705d08dc69900080bf8897962f7fc26d9439c0eac24/quantlib-1.43-cp39-abi3-win32.whl", hash = "sha256:70adba78db6bbb72b5b608af866c2fb3d3e440dc54bee9eb68d757e31c1c2e90", size = 11872353, upload-time = "2026-07-14T08:41:14.815Z" },
+    { url = "https://files.pythonhosted.org/packages/72/46/a2aa4a78e26bbb53c5d70ec73745d117519b3df6bc9fd342e2b1738e1724/quantlib-1.43-cp39-abi3-win_amd64.whl", hash = "sha256:61fcb95e8d7e15dfd23e83104d24ce28d45582a645e7dbce0c248216bf51913b", size = 12908304, upload-time = "2026-07-14T08:41:17.36Z" },
 ]
 
 [[package]]
@@ -645,6 +741,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/91/4c/075e4f66471bac101141ac739e9e135549be1bae584571bd03a530c056e1/scipy-1.18.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:d2924a03db38dc2e848bca2fe9f077dafb891480b91a00a0963a8cf86dfc31c1", size = 37480330, upload-time = "2026-08-21T23:24:19.608Z" },
     { url = "https://files.pythonhosted.org/packages/39/e7/979fd14e75008623df31ba70d6bb144700f68feadcea042021c06a05bf82/scipy-1.18.1-cp312-cp312-win_amd64.whl", hash = "sha256:5e4d44984abc0020154ea81b247adeddcc3ac5527b975ff798bd1ba0adc513c2", size = 36658278, upload-time = "2026-08-21T23:24:25.463Z" },
     { url = "https://files.pythonhosted.org/packages/c7/0b/e1525354ff9d7d5feb6d1b31af6d14072e5c91e9607b421fa1ec889660b3/scipy-1.18.1-cp312-cp312-win_arm64.whl", hash = "sha256:d65d448389b8436493abcf629cc94ad0cf32aecaf06e1acca1de53cc795f2f12", size = 24400588, upload-time = "2026-08-21T23:24:30.579Z" },
+]
+
+[[package]]
+name = "scipy-stubs"
+version = "1.18.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "optype", extra = ["numpy"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/76/13f1b922b32ec866389b6f359cf6c29bdb74726df130f0a23a95c72486c1/scipy_stubs-1.18.1.1.tar.gz", hash = "sha256:87995ba945f04a3c3fb9cdb5c06d093cf3637ca1271ae6799eb8030b63fb2263", size = 460131, upload-time = "2026-09-20T22:37:38.617Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/53/9b6dff8225ef3dbc203b1c2329d9efb2b66dfd51d5c2bf048c0676f47731/scipy_stubs-1.18.1.1-py3-none-any.whl", hash = "sha256:1a48be1702cad1ae9aa850c62ed157c988d990305880511d0e38994d502664f4", size = 665244, upload-time = "2026-09-20T22:37:37.029Z" },
 ]
 
 [[package]]

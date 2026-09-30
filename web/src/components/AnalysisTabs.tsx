@@ -1,10 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
 
-import { useUi, type AnalysisTab } from "../state/ui";
+import { TABS, useUi, type AnalysisTab } from "../state/ui";
 import { Diagnostics } from "./Diagnostics";
-
-/** Analysis views. Each view ships with the phase that makes it useful (Profiles, Heatmap: Phase 1). */
-const TABS: { value: AnalysisTab; label: string }[] = [{ value: "diagnostics", label: "Diagnostics" }];
+import { Heatmap } from "./Heatmap";
+import { Profiles } from "./Profiles";
 
 export function AnalysisTabs() {
   const tab = useUi((s) => s.tab);
@@ -27,6 +26,12 @@ export function AnalysisTabs() {
           </Tabs.Trigger>
         ))}
       </Tabs.List>
+      <Tabs.Content value="profiles" className="outline-none">
+        <Profiles />
+      </Tabs.Content>
+      <Tabs.Content value="heatmap" className="outline-none">
+        <Heatmap />
+      </Tabs.Content>
       <Tabs.Content value="diagnostics" className="outline-none">
         <Diagnostics />
       </Tabs.Content>

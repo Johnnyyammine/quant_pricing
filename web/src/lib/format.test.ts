@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatNumber, parseNumber, roundTo } from "./format";
+import { formatNumber, formatSci, parseNumber, roundTo } from "./format";
 
 describe("formatNumber", () => {
   it("uses fixed decimals and grouping", () => {
@@ -38,5 +38,13 @@ describe("parseNumber", () => {
 describe("roundTo", () => {
   it("removes floating noise", () => {
     expect(roundTo(0.1 + 0.2, 4)).toBe(0.3);
+  });
+});
+
+describe("formatSci", () => {
+  it("formats small numbers compactly", () => {
+    expect(formatSci(3.21e-7, 1)).toBe("3.2e\u22127");
+    expect(formatSci(1500, 1)).toBe("1.5e3");
+    expect(formatSci(0, 1)).toBe("0");
   });
 });

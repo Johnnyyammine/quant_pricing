@@ -27,6 +27,15 @@
   --warn: #9a6700;
   --focus: rgb(47 91 211 / 0.45);
   --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+  /* Chart series: categorical order validated for CVD separation (dataviz validator). */
+  --series-1: #2f5bd3;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  /* Diverging PnL scale: loss ← neutral → gain. */
+  --pnl-neg: #c0392b;
+  --pnl-mid: #f0efec;
+  --pnl-pos: #16794a;
   color-scheme: light;
 }
 
@@ -48,6 +57,13 @@
   --warn: #d9a441;
   --focus: rgb(123 156 255 / 0.5);
   --shadow: none;
+  --series-1: #6389f5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --pnl-neg: #e5645b;
+  --pnl-mid: #2a2f38;
+  --pnl-pos: #3fae78;
   color-scheme: dark;
 }
 

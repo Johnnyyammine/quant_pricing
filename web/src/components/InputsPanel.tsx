@@ -1,6 +1,7 @@
 import { useMeta } from "../hooks/usePrice";
 import { useInputs } from "../state/inputs";
 import { DateField, NumericField, SelectField, ControlRow } from "./fields";
+import { ImpliedVolGroup } from "./ImpliedVolGroup";
 import { InputGroup } from "./InputGroup";
 import { Segmented } from "./Segmented";
 
@@ -9,12 +10,19 @@ const OPTION_TYPES = [
   { value: "put", label: "Put" },
 ] as const;
 
+const MODELS = [
+  { value: "bsm", label: "Black–Scholes–Merton" },
+  { value: "black76", label: "Black-76 (forward)" },
+] as const;
+
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "JPY"].map((c) => ({ value: c, label: c }));
 
 export function InputsPanel() {
   const i = useInputs((s) => s.inputs);
   const set = useInputs((s) => s.set);
   const meta = useMeta();
+  const black76 = i.model === "black76";
+  const notUsed = "Not used under Black-76: the forward is quoted directly.";
   const methods = meta.data?.methods.map((m) => ({ value: m.name, label: m.label })) ?? [
     { value: i.method, label: i.method },
   ];
@@ -89,7 +97,7 @@ export function InputsPanel() {
         />
         <NumericField
           id="spot"
-          label="Spot"
+          label={black76 ? "Forward" : "Spot"}
           value={i.spot}
           onChange={(v) => {
             set("spot", v);
@@ -97,7 +105,14 @@ export function InputsPanel() {
           step={1}
           dp={2}
           min={0.0001}
-          help={{ title: "Spot S₀", definition: "Underlying price at the valuation date." }}
+          help={
+            black76
+              ? {
+                  title: "Forward F",
+                  definition: "Forward (futures) price for the option expiry. Black-76 underlying.",
+                }
+              : { title: "Spot S₀", definition: "Underlying price at the valuation date." }
+          }
         />
         <NumericField
           id="rate"
@@ -125,7 +140,11 @@ export function InputsPanel() {
           step={0.05}
           dp={3}
           unit="%"
-          help={{ title: "Dividend yield q", definition: "Continuous dividend yield. Enters the forward only." }}
+          disabled={black76}
+          help={{
+            title: "Dividend yield q",
+            definition: black76 ? notUsed : "Continuous dividend yield. Enters the forward only.",
+          }}
         />
         <NumericField
           id="borrow"
@@ -137,9 +156,12 @@ export function InputsPanel() {
           step={0.05}
           dp={3}
           unit="%"
+          disabled={black76}
           help={{
             title: "Repo / borrow spread b",
-            definition: "Stock borrow cost over the discount rate. Enters the forward only, not discounting.",
+            definition: black76
+              ? notUsed
+              : "Stock borrow cost over the discount rate. Enters the forward only, not discounting.",
             formula: "F = S₀ · exp((r − q − b)T)",
           }}
         />
@@ -164,10 +186,11 @@ export function InputsPanel() {
           wide
           id="model"
           label="Model"
-          value="bsm"
-          options={[{ value: "bsm", label: "Black–Scholes–Merton" }]}
-          onChange={() => undefined}
-          disabled
+          value={i.model}
+          options={MODELS}
+          onChange={(v) => {
+            set("model", v);
+          }}
         />
         <SelectField
           wide
@@ -180,6 +203,8 @@ export function InputsPanel() {
           }}
         />
       </InputGroup>
+
+      <ImpliedVolGroup />
     </div>
   );
 }

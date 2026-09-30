@@ -29,6 +29,9 @@ F(0,T) = S₀ · P_q(0,T) · P_b(0,T) / P_r(0,T)  =  S₀ · exp((r − q − b)
   financed at repo therefore earns `r − b − q`.
 - Discrete cash and proportional dividends arrive in Phase 2 through `MarketData.forward(t)`. For
   the PDE they come with proper jump conditions `V(S, t_d⁻) = V(S − D, t_d⁺)`.
+- **Black-76:** the model quotes the forward directly (`MarketData.spot` holds `F` for the option
+  expiry; `Model.forward` returns it). Dividend and borrow curves are ignored. Hence ρ = −T·V (the
+  forward is fixed when rates move) and φ = 0. Δ and Γ are with respect to `F`.
 
 ## Volatility
 
@@ -94,5 +97,7 @@ every result and editable in the UI's Diagnostics tab. The bump defaults are:
 | `bumps.vol_abs` | 1e-3 | 0.1 vol point |
 | `bumps.rate_abs` | 1e-4 | 1 bp, for ρ and φ |
 | `bumps.time_days` | 1 | calendar-day roll, for Θ and charm |
+| `implied_vol.max_iterations` | 2 | Householder(3) steps in Let's Be Rational |
+| `force_bump_greeks` | false | bump every greek even where closed forms exist (cross-check) |
 
 See [`methods/bump_and_revalue.md`](methods/bump_and_revalue.md) for the stencils.

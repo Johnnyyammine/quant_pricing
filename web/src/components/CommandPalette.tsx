@@ -1,8 +1,9 @@
 import { Command } from "cmdk";
 import { useEffect } from "react";
 
+import { usePin } from "../hooks/usePin";
 import { useInputs } from "../state/inputs";
-import { useUi } from "../state/ui";
+import { TABS, useUi, type AnalysisTab } from "../state/ui";
 
 interface Action {
   id: string;
@@ -28,6 +29,23 @@ export function CommandPalette() {
   const ui = useUi();
   const set = useInputs((s) => s.set);
   const reset = useInputs((s) => s.reset);
+  const { pinned, canPin, pin, unpin, toggle } = usePin();
+
+  // "P" toggles the pin when focus is not in a text field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target?.closest("input, textarea, select, [contenteditable=true]");
+      if (e.key.toLowerCase() === "p" && !e.metaKey && !e.ctrlKey && !e.altKey && !typing) {
+        e.preventDefault();
+        toggle();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [toggle]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,31 +60,21 @@ export function CommandPalette() {
     };
   }, [setOpen]);
 
+  const tab = (t: AnalysisTab) => () => {
+    ui.setTab(t);
+  };
+  const setOption = (v: "call" | "put") => () => {
+    set("optionType", v);
+  };
+  const setModel = (v: "bsm" | "black76") => () => {
+    set("model", v);
+  };
   const actions: Action[] = [
-    {
-      id: "call",
-      group: "Product",
-      label: "European call",
-      run: () => {
-        set("optionType", "call");
-      },
-    },
-    {
-      id: "put",
-      group: "Product",
-      label: "European put",
-      run: () => {
-        set("optionType", "put");
-      },
-    },
-    {
-      id: "diag",
-      group: "Go to",
-      label: "Diagnostics",
-      run: () => {
-        ui.setTab("diagnostics");
-      },
-    },
+    { id: "call", group: "Product", label: "European call", run: setOption("call") },
+    { id: "put", group: "Product", label: "European put", run: setOption("put") },
+    { id: "bsm", group: "Model", label: "Black–Scholes–Merton (spot)", run: setModel("bsm") },
+    { id: "b76", group: "Model", label: "Black-76 (forward)", run: setModel("black76") },
+    ...TABS.map((t) => ({ id: `tab-${t.value}`, group: "Go to", label: t.label, run: tab(t.value) })),
     {
       id: "f-spot",
       group: "Go to",
@@ -91,6 +99,19 @@ export function CommandPalette() {
         focusField("vol");
       },
     },
+    {
+      id: "f-iv",
+      group: "Go to",
+      label: "Implied vol from price",
+      run: () => {
+        focusField("iv-target");
+      },
+    },
+    ...(pinned
+      ? [{ id: "unpin", group: "Compare", label: "Unpin result", run: unpin }]
+      : canPin
+        ? [{ id: "pin", group: "Compare", label: "Pin current result (P)", run: pin }]
+        : []),
     {
       id: "pure",
       group: "Greeks",
