@@ -1,0 +1,582 @@
+{
+  "components": {
+    "schemas": {
+      "BumpSettingsIn": {
+        "additionalProperties": false,
+        "description": "Bump sizes for bump-and-revalue greeks.",
+        "properties": {
+          "rate_abs": {
+            "default": 0.0001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.01,
+            "title": "Rate Abs",
+            "type": "number"
+          },
+          "spot_rel": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.1,
+            "title": "Spot Rel",
+            "type": "number"
+          },
+          "time_days": {
+            "default": 1,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Time Days",
+            "type": "integer"
+          },
+          "vol_abs": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.05,
+            "title": "Vol Abs",
+            "type": "number"
+          }
+        },
+        "title": "BumpSettingsIn",
+        "type": "object"
+      },
+      "DiagnosticsOut": {
+        "additionalProperties": false,
+        "description": "Diagnostics of a pricing run.",
+        "properties": {
+          "details": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "method_label": {
+            "title": "Method Label",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "revaluations": {
+            "title": "Revaluations",
+            "type": "integer"
+          },
+          "runtime_ms": {
+            "description": "Engine wall-clock time for price and greeks, ms",
+            "title": "Runtime Ms",
+            "type": "number"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SettingsIn"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "method_label",
+          "model",
+          "runtime_ms",
+          "revaluations",
+          "settings",
+          "details",
+          "warnings"
+        ],
+        "title": "DiagnosticsOut",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "additionalProperties": false,
+        "description": "Engine error surfaced to the client.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EuropeanOptionIn": {
+        "additionalProperties": false,
+        "description": "European call or put.",
+        "properties": {
+          "currency": {
+            "default": "EUR",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "expiry": {
+            "format": "date",
+            "title": "Expiry",
+            "type": "string"
+          },
+          "option_type": {
+            "$ref": "#/components/schemas/OptionType"
+          },
+          "quantity": {
+            "default": 1.0,
+            "description": "Units of underlying",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "strike": {
+            "description": "Strike, in price units",
+            "exclusiveMinimum": 0.0,
+            "title": "Strike",
+            "type": "number"
+          },
+          "type": {
+            "const": "european",
+            "default": "european",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_type",
+          "strike",
+          "expiry"
+        ],
+        "title": "EuropeanOptionIn",
+        "type": "object"
+      },
+      "Greek": {
+        "description": "Supported sensitivities, with their pure-unit definition.\n\n``V`` is the unit price, ``S`` spot, ``\u03c3`` the implied vol (parallel surface shift), ``r``\nthe discount zero rate, ``q`` the dividend yield, ``t`` calendar time in years (``\u03c4 = T \u2212 t``).",
+        "enum": [
+          "delta",
+          "gamma",
+          "vega",
+          "theta",
+          "rho",
+          "phi",
+          "vanna",
+          "volga",
+          "charm"
+        ],
+        "title": "Greek",
+        "type": "string"
+      },
+      "GreekOut": {
+        "additionalProperties": false,
+        "description": "One greek in desk units.",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/Greek"
+          },
+          "source": {
+            "$ref": "#/components/schemas/GreekSource"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "unit",
+          "source"
+        ],
+        "title": "GreekOut",
+        "type": "object"
+      },
+      "GreekSource": {
+        "description": "How a greek was computed.",
+        "enum": [
+          "analytic",
+          "bump"
+        ],
+        "title": "GreekSource",
+        "type": "string"
+      },
+      "GreeksOut": {
+        "additionalProperties": false,
+        "description": "Greeks in both display modes so the UI can toggle without refetching.",
+        "properties": {
+          "cash": {
+            "items": {
+              "$ref": "#/components/schemas/GreekOut"
+            },
+            "title": "Cash",
+            "type": "array"
+          },
+          "pure": {
+            "items": {
+              "$ref": "#/components/schemas/GreekOut"
+            },
+            "title": "Pure",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pure",
+          "cash"
+        ],
+        "title": "GreeksOut",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "description": "Liveness probe.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "MarketIn": {
+        "additionalProperties": false,
+        "description": "Flat market: continuously compounded rates, ACT/365F.",
+        "properties": {
+          "borrow": {
+            "default": 0.0,
+            "description": "Repo/borrow spread, continuous, decimal",
+            "title": "Borrow",
+            "type": "number"
+          },
+          "dividend_yield": {
+            "default": 0.0,
+            "description": "Continuous dividend yield, decimal",
+            "title": "Dividend Yield",
+            "type": "number"
+          },
+          "rate": {
+            "description": "Discount zero rate, continuous, decimal",
+            "title": "Rate",
+            "type": "number"
+          },
+          "spot": {
+            "exclusiveMinimum": 0.0,
+            "title": "Spot",
+            "type": "number"
+          },
+          "valuation_date": {
+            "format": "date",
+            "title": "Valuation Date",
+            "type": "string"
+          },
+          "vol": {
+            "description": "Implied volatility, decimal",
+            "exclusiveMinimum": 0.0,
+            "maximum": 5.0,
+            "title": "Vol",
+            "type": "number"
+          }
+        },
+        "required": [
+          "valuation_date",
+          "spot",
+          "rate",
+          "vol"
+        ],
+        "title": "MarketIn",
+        "type": "object"
+      },
+      "MetaResponse": {
+        "additionalProperties": false,
+        "description": "Static metadata for the UI.",
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/MethodOut"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "methods"
+        ],
+        "title": "MetaResponse",
+        "type": "object"
+      },
+      "MethodOut": {
+        "additionalProperties": false,
+        "description": "A registered pricing method.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "MethodOut",
+        "type": "object"
+      },
+      "ModelIn": {
+        "additionalProperties": false,
+        "description": "Model selection.",
+        "properties": {
+          "type": {
+            "const": "bsm",
+            "default": "bsm",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "ModelIn",
+        "type": "object"
+      },
+      "OptionType": {
+        "description": "Call or put. ``omega`` is +1 for a call and \u22121 for a put.",
+        "enum": [
+          "call",
+          "put"
+        ],
+        "title": "OptionType",
+        "type": "string"
+      },
+      "PriceRequest": {
+        "additionalProperties": false,
+        "description": "Price one instrument.",
+        "properties": {
+          "instrument": {
+            "$ref": "#/components/schemas/EuropeanOptionIn"
+          },
+          "market": {
+            "$ref": "#/components/schemas/MarketIn"
+          },
+          "method": {
+            "default": "forward_intrinsic",
+            "title": "Method",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelIn",
+            "default": {
+              "type": "bsm"
+            }
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SettingsIn",
+            "default": {
+              "bumps": {
+                "rate_abs": 0.0001,
+                "spot_rel": 0.001,
+                "time_days": 1,
+                "vol_abs": 0.001
+              }
+            }
+          }
+        },
+        "required": [
+          "instrument",
+          "market"
+        ],
+        "title": "PriceRequest",
+        "type": "object"
+      },
+      "PriceResponse": {
+        "additionalProperties": false,
+        "description": "Price, market-derived quantities, greeks and diagnostics.",
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DiagnosticsOut"
+          },
+          "discount_factor": {
+            "title": "Discount Factor",
+            "type": "number"
+          },
+          "forward": {
+            "title": "Forward",
+            "type": "number"
+          },
+          "greeks": {
+            "$ref": "#/components/schemas/GreeksOut"
+          },
+          "pct_notional": {
+            "description": "100 \u00d7 unit price / spot, %",
+            "title": "Pct Notional",
+            "type": "number"
+          },
+          "position_value": {
+            "description": "quantity \u00d7 unit price, currency",
+            "title": "Position Value",
+            "type": "number"
+          },
+          "price": {
+            "description": "Unit price, currency",
+            "title": "Price",
+            "type": "number"
+          },
+          "time_to_expiry": {
+            "description": "ACT/365F year fraction",
+            "title": "Time To Expiry",
+            "type": "number"
+          }
+        },
+        "required": [
+          "currency",
+          "price",
+          "position_value",
+          "pct_notional",
+          "forward",
+          "discount_factor",
+          "time_to_expiry",
+          "greeks",
+          "diagnostics"
+        ],
+        "title": "PriceResponse",
+        "type": "object"
+      },
+      "SettingsIn": {
+        "additionalProperties": false,
+        "description": "Numerical settings.",
+        "properties": {
+          "bumps": {
+            "$ref": "#/components/schemas/BumpSettingsIn",
+            "default": {
+              "rate_abs": 0.0001,
+              "spot_rel": 0.001,
+              "time_days": 1,
+              "vol_abs": 0.001
+            }
+          }
+        },
+        "title": "SettingsIn",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Quant Pricer API",
+    "version": "0.0.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/health": {
+      "get": {
+        "description": "Liveness probe.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/meta": {
+      "get": {
+        "description": "Registered pricing methods and version.",
+        "operationId": "meta_api_meta_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Meta"
+      }
+    },
+    "/api/price": {
+      "post": {
+        "description": "Price one instrument with greeks in desk units.",
+        "operationId": "price_api_price_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Price"
+      }
+    }
+  }
+}

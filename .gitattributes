@@ -1,0 +1,7 @@
+* text=auto
+*.bat text eol=crlf
+*.command text eol=lf
+*.sh text eol=lf
+api/openapi.json linguist-generated=true
+web/src/api/schema.d.ts linguist-generated=true
+uv.lock linguist-generated=true
