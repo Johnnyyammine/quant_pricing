@@ -18,18 +18,22 @@ engine/          Pure Python pricing library (numpy/scipy only). No web, API or 
   errors.py        PricingError hierarchy
   numerics/        normal.py (Φ, erfcx, Φ⁻¹), black.py (Jäckel accurate normalised Black),
                    rational_cubic.py (Delbourgo–Gregory)
-  market/          RateCurve, VolSurface protocols + flat impls; MarketData (forward, df)
+  market/          RateCurve (flat, log-linear ZeroCurve, RolledCurve), VolSurface, Dividend;
+                   MarketData (forward with dividends + sensitivities, escrowed decomposition)
   instruments/     Pure data (frozen dataclasses). No pricing logic.
-  models/          BlackScholesMerton, Black76 (Model.forward: spot-based vs quoted forward)
-  methods/         PricingMethod ABC, registry; analytic.py + black_formulas.py (closed forms)
-  risk/            bumps.py (market transforms), greeks.py (central-difference bump layer),
-                   units.py (pure → desk units), scenarios.py (MarketShock, profiles, grids)
+  models/          BlackScholesMerton (dividend treatment: escrowed | spot), Black76
+  methods/         PricingMethod ABC (evaluate, evaluate_ladder, analytic_greeks), registry;
+                   analytic.py + black_formulas.py (closed forms, forward-based), tree.py
+                   (Leisen–Reimer), pde.py (Crank–Nicolson), dynamics.py (state ↔ spot)
+  risk/            bumps.py (market transforms), greeks.py (ladder-grouped bump layer),
+                   units.py (pure → desk units), scenarios.py (MarketShock, profiles, grids),
+                   smoothing.py (risk proxies: digital call spread), comparison.py (convergence)
   calibration/     implied_vol.py (Let's Be Rational); Phase 3: SVI, Dupire, Heston
 api/             FastAPI + pydantic v2. Thin: validate → map → engine.price → serialise.
   schemas.py       Request/response models (decimals, not %)
   mapping.py       The only place API schemas and engine types meet
-  routes.py        /api/health, /api/meta, /api/price, /api/profile, /api/heatmap,
-                   /api/implied-vol
+  routes.py        /api/health, /api/meta (support matrix), /api/price, /api/profile,
+                   /api/heatmap, /api/implied-vol, /api/compare
   app.py           App factory; serves web/dist with SPA fallback when built
   openapi.json     Generated. Source of web/src/api/schema.d.ts
 web/             React 19 + TS (strict) + Vite + Tailwind v4 + TanStack Query + Zustand
@@ -37,7 +41,8 @@ web/             React 19 + TS (strict) + Vite + Tailwind v4 + TanStack Query + 
   src/state/       inputs.ts (display units → toRequest), ui.ts (persisted prefs)
   src/state/       + compare.ts (pinned result for compare mode)
   src/components/  Panels, fields, command palette (cmdk), Radix primitives; Chart.tsx
-                   (lazy Plotly, themed from CSS tokens), Profiles, Heatmap, CompareBar
+                   (lazy Plotly, themed from CSS tokens), Profiles, Heatmap, MethodsView,
+                   CompareBar, RateField (flat | tenor curve), DividendsGroup
   e2e/             Playwright smoke tests against the built single-process app
 tests/           pytest: unit/, api/, perf/ (benchmarks, `-m perf`). Oracles (dev only): QuantLib,
                  mpmath (50-digit), py_lets_be_rational
@@ -56,7 +61,7 @@ in `api/mapping.py`.
 
 - **New pricing method:**
   1. Subclass `engine.methods.base.PricingMethod`: `supports`, `evaluate`, optionally
-     `analytic_greeks` (pure model units).
+     `analytic_greeks` (pure model units) and `evaluate_ladder` (many spots per solve).
   2. Register it in `engine/methods/registry.py`.
   3. Add tests against an independent reference with stated tolerances, and a note in
      `docs/methods/`.
@@ -71,7 +76,12 @@ in `api/mapping.py`.
 
 - **Dates:** ACT/365F. Weekday calendar with a pluggable holiday set. Valuation granularity is one
   day.
-- **Forwards:** `F = S·P_q·P_b/P_r`. Repo/borrow `b` enters the forward only, never discounting.
+- **Forwards:** `F = S·A(T) − Σ D_i B_i(T)` with `G = P_q·P_b/P_r`. Repo/borrow `b` and yield `q`
+  enter the forward only, never discounting.
+- **Dividends:** ex at the open of the ex-date, paid on it. Escrowed treatment by default (Europeans
+  exactly Black on the forward); spot jumps are PDE only.
+- **Theta and rolls:** rolling the valuation date realises the curve forwards
+  (`P'(t) = P(t+h)/P(h)`). Dividends keep their dates; spot and vols are fixed.
 - **Engine greeks:** pure model units (∂V/∂x, time in years). Θ = ∂V/∂t with spot, vol and rates
   held fixed.
 - **Desk units:**
@@ -128,16 +138,20 @@ make openapi     # regenerate api/openapi.json + web/src/api/schema.d.ts
 
 ## Current state
 
-- **Phase 0 (foundations):** done, merged.
-- **Phase 1 (vanilla, done perfectly):**
-  - BSM and Black-76 closed forms with all nine greeks.
-  - Let's Be Rational implied vol.
-  - Profiles, Heatmap and Diagnostics tabs (including the greek check).
-  - Implied-vol solver in the UI.
-  - Compare mode (pin).
-  - Performance: price plus greeks ~20 µs; 50×50 heatmap ~36 ms.
-- **Next, Phase 2:** American options (Leisen–Reimer tree plus Crank–Nicolson PDE side by side),
-  digitals, discrete dividends, and rate/dividend term structures.
+- **Phases 0 and 1:** done, merged.
+- **Phase 2 (early exercise, dividends, term structures):**
+  - **Methods:** Leisen–Reimer tree and Crank–Nicolson PDE (Rannacher start-up, penalty for
+    American exercise, exercise boundary).
+  - **Market data:** discrete dividends under the escrowed or spot-jump treatment; log-linear zero
+    curves for rates, yield and borrow.
+  - **Digitals:** cash-or-nothing, closed form and PDE, with call-spread greek smoothing.
+  - **UI:** Methods tab (side by side, convergence, early-exercise premium); spot ladders in the
+    bump layer.
+  - **Performance (defaults):**
+    - American PDE: price 44 ms, with greeks about 0.45 s.
+    - Tree: price 3.6 ms, with greeks about 0.25 s.
+- **Next, Phase 3:** CSV quote import, SVI per slice with arbitrage checks, smile and surface viewer,
+  Dupire local vol, and Heston (COS) with calibration.
 
 ## Testing policy
 
@@ -149,7 +163,12 @@ make openapi     # regenerate api/openapi.json + web/src/api/schema.d.ts
   prices, OTM parts below round-off next to intrinsic). The exclusion and its reason are written
   down in the test.
 - **Before pushing:** run a few extra `--hypothesis-seed` values for new property tests. CI uses
-  the derandomised `ci` profile.
+  the derandomised `ci` profile. Slow property tests (PDE, tree) set `max_examples` explicitly.
+- **Discretised vs discretised:** when both sides of a comparison are discretised (our PDE vs
+  QuantLib FD), each side is bounded by its own refinement correction:
+  `|ours − ref| ≤ |Δours| + |Δref| + floor`.
+- **Oracle hygiene:** verify an oracle before trusting it. QuantLib's American LR can price below its
+  own European, so it is not used for American trees. The reason is written in the test.
 
 ## Decision log
 
@@ -175,3 +194,14 @@ make openapi     # regenerate api/openapi.json + web/src/api/schema.d.ts
 | 2026-09-30 | Heatmap keeps red/green for signed PnL (user spec) with a neutral midpoint, lightness-separated poles, exact hover values and a labelled colour bar | The dataviz guidance prefers blue/red for colour-blindness; these mitigations keep the user's convention readable |
 | 2026-09-30 | Default trade 10,000 units, 2% dividend yield | Cash greeks readable at €1m notional; avoids the degenerate d₂ = 0 case of r − q = σ²/2 |
 | 2026-09-30 | Dev oracles: QuantLib, mpmath, py_lets_be_rational; scipy-stubs for strict mypy | Independent references; typed scipy |
+| 2026-09-30 | Discrete dividends: escrowed treatment default, spot-jump treatment PDE only | Escrowed makes Europeans exactly Black on the forward (consistent with forward-quoted implied vols) and lets tree and PDE compare numerics under one model; a recombining tree cannot carry spot-jump cash dividends |
+| 2026-09-30 | Rolls realise curve forwards (`P(t+h)/P(h)`); dividends keep dates | Theta is carry theta with the market unchanged by calendar date; flat curves unaffected |
+| 2026-09-30 | Log-linear zero curves (piecewise-flat forwards) | Standard, arbitrage-free, exact parallel shifts; QuantLib oracle available |
+| 2026-09-30 | Black kernel takes the forward and its sensitivities (F_S, F_r, F_q) | One set of closed forms for BSM, dividends, term structures and Black-76 |
+| 2026-09-30 | Digital greeks from a centred call-spread replica (1% of K default; 0 = exact); price exact | Bounded risk near expiry at the strike; carries skew once surfaces exist; the bias is reported |
+| 2026-09-30 | Spot ladders in the method interface; bump stencils grouped by non-spot bump | Nine revaluations for all greeks at any number of spots: PDE shares solves, tree vectorises |
+| 2026-09-30 | LR tree on the driftless martingale part of the state | Term structures and escrowed dividends without special cases; exact match to QuantLib's European LR |
+| 2026-09-30 | PDE: uniform log grid with the strike on a node, Rannacher, penalty (warm-started), LAPACK dgtsv | Smooth spot greeks, second-order convergence, generic American constraint; 800 × 200 default (about 5e-5 relative) |
+| 2026-09-30 | Charts run numerical methods at a lighter scenario resolution; profiles request only the greek on screen | Keeps charts responsive with the tree and PDE; the resolution is visible in Diagnostics |
+| 2026-09-30 | Reported runtimes are pricing-thread CPU time | Wall time was inflated by concurrent UI requests under the GIL |
+| 2026-09-30 | openapi-typescript with `--default-non-nullable=false` | Request types may omit defaulted fields; the server owns the defaults |

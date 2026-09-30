@@ -38,3 +38,39 @@ def test_heatmap_50x50_under_1s(benchmark, market, call):
     )
     assert len(grid) == 50
     assert benchmark.stats.stats.median < HEATMAP_TARGET_S
+
+
+def test_bench_american_pde_price_and_greeks(benchmark, market):
+    """Informational: default 800 × 200 grid, all nine greeks (nine ladder solves + base)."""
+    import datetime as dt
+
+    from engine.instruments.vanilla import AmericanOption, OptionType
+    from engine.methods.pde import CrankNicolsonPde
+
+    a = AmericanOption(
+        option_type=OptionType.PUT,
+        strike=100.0,
+        expiry=market.valuation_date + dt.timedelta(days=365),
+    )
+    result = benchmark.pedantic(
+        price, args=(a, market, BlackScholesMerton(), CrankNicolsonPde()), rounds=3
+    )
+    assert result.greeks is not None
+
+
+def test_bench_american_tree_price_and_greeks(benchmark, market):
+    """Informational: 401 steps, all nine greeks."""
+    import datetime as dt
+
+    from engine.instruments.vanilla import AmericanOption, OptionType
+    from engine.methods.tree import LeisenReimerTree
+
+    a = AmericanOption(
+        option_type=OptionType.PUT,
+        strike=100.0,
+        expiry=market.valuation_date + dt.timedelta(days=365),
+    )
+    result = benchmark.pedantic(
+        price, args=(a, market, BlackScholesMerton(), LeisenReimerTree()), rounds=3
+    )
+    assert result.greeks is not None
