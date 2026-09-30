@@ -1,0 +1,80 @@
+[project]
+name = "quant-pricer"
+version = "0.0.1"
+description = "Local pricing and risk workstation for equity derivatives and structured products."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2.1",
+    "scipy>=1.14",
+    "pydantic>=2.9",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "hypothesis>=6.120",
+    "pytest-benchmark>=5.1",
+    "httpx>=0.28",
+    "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine", "api"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "N", "SIM", "RUF", "PT", "NPY", "PERF", "ANN", "D",
+]
+ignore = [
+    "D100", "D104", "D105", "D107",  # module/package/magic/__init__ docstrings
+    "D203", "D213",                  # conflicting docstring layout rules
+    "D401",                          # allow noun-phrase docstrings ("Unit price of ...")
+    "ANN401",
+    "RUF001", "RUF002", "RUF003",    # allow Greek letters / maths symbols in strings and comments
+    "N802", "N803", "N806",          # allow maths-style names (K, T, F, sigma_T, ...)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN", "PLR2004"]
+"scripts/**" = ["D"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "engine.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "api.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m \"not perf\""
+markers = [
+    "perf: performance benchmarks (run with `make bench`)",
+]
