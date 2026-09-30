@@ -1,6 +1,53 @@
 {
   "components": {
     "schemas": {
+      "AmericanOptionIn": {
+        "additionalProperties": false,
+        "description": "American call or put (exercisable any day up to expiry).",
+        "properties": {
+          "currency": {
+            "default": "EUR",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "expiry": {
+            "format": "date",
+            "title": "Expiry",
+            "type": "string"
+          },
+          "option_type": {
+            "$ref": "#/components/schemas/OptionType"
+          },
+          "quantity": {
+            "default": 1.0,
+            "description": "Units of underlying",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "strike": {
+            "description": "Strike, in price units",
+            "exclusiveMinimum": 0.0,
+            "title": "Strike",
+            "type": "number"
+          },
+          "type": {
+            "const": "american",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_type",
+          "strike",
+          "expiry",
+          "type"
+        ],
+        "title": "AmericanOptionIn",
+        "type": "object"
+      },
       "BumpSettingsIn": {
         "additionalProperties": false,
         "description": "Bump sizes for bump-and-revalue greeks.",
@@ -35,6 +82,115 @@
           }
         },
         "title": "BumpSettingsIn",
+        "type": "object"
+      },
+      "CompareRequest": {
+        "additionalProperties": false,
+        "description": "The same product under every registered method.",
+        "properties": {
+          "convergence": {
+            "default": true,
+            "title": "Convergence",
+            "type": "boolean"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/PriceRequest"
+          }
+        },
+        "required": [
+          "pricing"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "CompareResponse": {
+        "additionalProperties": false,
+        "description": "Methods side by side.",
+        "properties": {
+          "boundary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExerciseBoundary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "european_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Same contract with European exercise (unit, closed form)",
+            "title": "European Price"
+          },
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/MethodComparison"
+            },
+            "title": "Methods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "currency",
+          "methods"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "ConvergencePointOut": {
+        "additionalProperties": false,
+        "description": "Price at one resolution.",
+        "properties": {
+          "price": {
+            "description": "Unit price, currency",
+            "title": "Price",
+            "type": "number"
+          },
+          "resolution": {
+            "title": "Resolution",
+            "type": "integer"
+          },
+          "runtime_ms": {
+            "title": "Runtime Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "resolution",
+          "price",
+          "runtime_ms"
+        ],
+        "title": "ConvergencePointOut",
+        "type": "object"
+      },
+      "CurveIn": {
+        "additionalProperties": false,
+        "description": "Zero curve with log-linear discount factors between pillars.\n\nFlat before the first pillar; the last forward is extended beyond the last.",
+        "properties": {
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/PillarIn"
+            },
+            "minItems": 1,
+            "title": "Pillars",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pillars"
+        ],
+        "title": "CurveIn",
         "type": "object"
       },
       "DiagnosticsOut": {
@@ -103,6 +259,115 @@
         "title": "DiagnosticsOut",
         "type": "object"
       },
+      "DigitalOptionIn": {
+        "additionalProperties": false,
+        "description": "Cash-or-nothing digital paying ``payout`` per unit if in the money at expiry.",
+        "properties": {
+          "currency": {
+            "default": "EUR",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "expiry": {
+            "format": "date",
+            "title": "Expiry",
+            "type": "string"
+          },
+          "option_type": {
+            "$ref": "#/components/schemas/OptionType"
+          },
+          "payout": {
+            "default": 1.0,
+            "description": "Cash per unit, currency",
+            "exclusiveMinimum": 0.0,
+            "title": "Payout",
+            "type": "number"
+          },
+          "quantity": {
+            "default": 1.0,
+            "description": "Units of underlying",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "strike": {
+            "description": "Strike, in price units",
+            "exclusiveMinimum": 0.0,
+            "title": "Strike",
+            "type": "number"
+          },
+          "type": {
+            "const": "digital",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_type",
+          "strike",
+          "expiry",
+          "type"
+        ],
+        "title": "DigitalOptionIn",
+        "type": "object"
+      },
+      "DigitalSettingsIn": {
+        "additionalProperties": false,
+        "description": "Digital greek smoothing.",
+        "properties": {
+          "spread_width_rel": {
+            "default": 0.01,
+            "exclusiveMaximum": 0.5,
+            "minimum": 0.0,
+            "title": "Spread Width Rel",
+            "type": "number"
+          }
+        },
+        "title": "DigitalSettingsIn",
+        "type": "object"
+      },
+      "DividendIn": {
+        "additionalProperties": false,
+        "description": "Discrete dividend: ``S \u2192 S\u00b7(1 \u2212 proportional) \u2212 cash`` at the ex-date open.",
+        "properties": {
+          "cash": {
+            "default": 0.0,
+            "description": "Cash per share, currency",
+            "minimum": 0.0,
+            "title": "Cash",
+            "type": "number"
+          },
+          "ex_date": {
+            "format": "date",
+            "title": "Ex Date",
+            "type": "string"
+          },
+          "proportional": {
+            "default": 0.0,
+            "description": "Fraction of spot",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Proportional",
+            "type": "number"
+          }
+        },
+        "required": [
+          "ex_date"
+        ],
+        "title": "DividendIn",
+        "type": "object"
+      },
+      "DividendTreatment": {
+        "description": "How discrete cash dividends enter the dynamics.",
+        "enum": [
+          "escrowed",
+          "spot"
+        ],
+        "title": "DividendTreatment",
+        "type": "string"
+      },
       "ErrorResponse": {
         "additionalProperties": false,
         "description": "Engine error surfaced to the client.",
@@ -163,6 +428,33 @@
           "expiry"
         ],
         "title": "EuropeanOptionIn",
+        "type": "object"
+      },
+      "ExerciseBoundary": {
+        "additionalProperties": false,
+        "description": "PDE early-exercise boundary: exercise when spot is beyond ``spot`` at ``days``.",
+        "properties": {
+          "days": {
+            "description": "Days from the valuation date",
+            "items": {
+              "type": "number"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "spot": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Spot",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days",
+          "spot"
+        ],
+        "title": "ExerciseBoundary",
         "type": "object"
       },
       "Greek": {
@@ -384,7 +676,26 @@
         "description": "Implied vol from a unit price. ``market.vol`` is ignored.",
         "properties": {
           "instrument": {
-            "$ref": "#/components/schemas/EuropeanOptionIn"
+            "discriminator": {
+              "mapping": {
+                "american": "#/components/schemas/AmericanOptionIn",
+                "digital": "#/components/schemas/DigitalOptionIn",
+                "european": "#/components/schemas/EuropeanOptionIn"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EuropeanOptionIn"
+              },
+              {
+                "$ref": "#/components/schemas/AmericanOptionIn"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalOptionIn"
+              }
+            ],
+            "title": "Instrument"
           },
           "market": {
             "$ref": "#/components/schemas/MarketIn"
@@ -392,6 +703,7 @@
           "model": {
             "$ref": "#/components/schemas/ModelIn",
             "default": {
+              "dividend_treatment": "escrowed",
               "type": "bsm"
             }
           },
@@ -404,9 +716,29 @@
                 "time_days": 1,
                 "vol_abs": 0.001
               },
+              "digital": {
+                "spread_width_rel": 0.01
+              },
               "force_bump_greeks": false,
               "implied_vol": {
                 "max_iterations": 2
+              },
+              "pde": {
+                "n_std": 5.0,
+                "penalty": 100000000.0,
+                "penalty_max_iter": 25,
+                "penalty_tol": 1e-12,
+                "rannacher_steps": 2,
+                "space_nodes": 800,
+                "time_steps": 200
+              },
+              "scenario": {
+                "pde_space_nodes": 200,
+                "pde_time_steps": 100,
+                "tree_steps": 101
+              },
+              "tree": {
+                "steps": 401
               }
             }
           },
@@ -473,24 +805,54 @@
       },
       "MarketIn": {
         "additionalProperties": false,
-        "description": "Flat market: continuously compounded rates, ACT/365F.\n\nUnder Black-76, ``spot`` is the forward (futures) price for the option expiry and the\ndividend yield and borrow spread are ignored.",
+        "description": "Market snapshot. Each rate is a flat decimal or a pillar curve.\n\nUnder Black-76, ``spot`` is the forward (futures) price for the option expiry and the\ndividend yield, borrow and discrete dividends are ignored.",
         "properties": {
           "borrow": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/components/schemas/CurveIn"
+              }
+            ],
             "default": 0.0,
-            "description": "Repo/borrow spread, continuous, decimal",
-            "title": "Borrow",
-            "type": "number"
+            "description": "Repo/borrow spread(s), continuous",
+            "title": "Borrow"
           },
           "dividend_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/components/schemas/CurveIn"
+              }
+            ],
             "default": 0.0,
-            "description": "Continuous dividend yield, decimal",
-            "title": "Dividend Yield",
-            "type": "number"
+            "description": "Continuous dividend yield(s)",
+            "title": "Dividend Yield"
+          },
+          "dividends": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DividendIn"
+            },
+            "maxItems": 100,
+            "title": "Dividends",
+            "type": "array"
           },
           "rate": {
-            "description": "Discount zero rate, continuous, decimal",
-            "title": "Rate",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/components/schemas/CurveIn"
+              }
+            ],
+            "description": "Discount zero rate(s), continuous",
+            "title": "Rate"
           },
           "spot": {
             "exclusiveMinimum": 0.0,
@@ -542,10 +904,116 @@
         "title": "MetaResponse",
         "type": "object"
       },
+      "MethodComparison": {
+        "additionalProperties": false,
+        "description": "One method's result, or why it cannot price this product.",
+        "properties": {
+          "convergence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ConvergencePointOut"
+            },
+            "title": "Convergence",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "greeks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GreekOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cash greeks",
+            "title": "Greeks"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit price, currency",
+            "title": "Price"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tree steps or PDE space nodes",
+            "title": "Resolution"
+          },
+          "runtime_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Ms"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "method",
+          "label",
+          "supported"
+        ],
+        "title": "MethodComparison",
+        "type": "object"
+      },
       "MethodOut": {
         "additionalProperties": false,
-        "description": "A registered pricing method.",
+        "description": "A registered pricing method and the products it supports.",
         "properties": {
+          "instruments": {
+            "items": {
+              "enum": [
+                "european",
+                "american",
+                "digital"
+              ],
+              "type": "string"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -557,7 +1025,8 @@
         },
         "required": [
           "name",
-          "label"
+          "label",
+          "instruments"
         ],
         "title": "MethodOut",
         "type": "object"
@@ -566,6 +1035,11 @@
         "additionalProperties": false,
         "description": "Model selection.",
         "properties": {
+          "dividend_treatment": {
+            "$ref": "#/components/schemas/DividendTreatment",
+            "default": "escrowed",
+            "description": "BSM cash dividends: escrowed (lognormal S \u2212 PV) or spot jumps (PDE only)"
+          },
           "type": {
             "default": "bsm",
             "enum": [
@@ -588,12 +1062,107 @@
         "title": "OptionType",
         "type": "string"
       },
+      "PdeSettingsIn": {
+        "additionalProperties": false,
+        "description": "Crank\u2013Nicolson PDE.",
+        "properties": {
+          "n_std": {
+            "default": 5.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 20.0,
+            "title": "N Std",
+            "type": "number"
+          },
+          "penalty": {
+            "default": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Penalty",
+            "type": "number"
+          },
+          "penalty_max_iter": {
+            "default": 25,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Penalty Max Iter",
+            "type": "integer"
+          },
+          "penalty_tol": {
+            "default": 1e-12,
+            "exclusiveMinimum": 0.0,
+            "title": "Penalty Tol",
+            "type": "number"
+          },
+          "rannacher_steps": {
+            "default": 2,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Rannacher Steps",
+            "type": "integer"
+          },
+          "space_nodes": {
+            "default": 800,
+            "maximum": 20000.0,
+            "minimum": 20.0,
+            "title": "Space Nodes",
+            "type": "integer"
+          },
+          "time_steps": {
+            "default": 200,
+            "maximum": 20000.0,
+            "minimum": 4.0,
+            "title": "Time Steps",
+            "type": "integer"
+          }
+        },
+        "title": "PdeSettingsIn",
+        "type": "object"
+      },
+      "PillarIn": {
+        "additionalProperties": false,
+        "description": "Continuously compounded zero rate to ``date`` (ACT/365F from the valuation date).",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "rate"
+        ],
+        "title": "PillarIn",
+        "type": "object"
+      },
       "PriceRequest": {
         "additionalProperties": false,
         "description": "Price one instrument.",
         "properties": {
           "instrument": {
-            "$ref": "#/components/schemas/EuropeanOptionIn"
+            "discriminator": {
+              "mapping": {
+                "american": "#/components/schemas/AmericanOptionIn",
+                "digital": "#/components/schemas/DigitalOptionIn",
+                "european": "#/components/schemas/EuropeanOptionIn"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EuropeanOptionIn"
+              },
+              {
+                "$ref": "#/components/schemas/AmericanOptionIn"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalOptionIn"
+              }
+            ],
+            "title": "Instrument"
           },
           "market": {
             "$ref": "#/components/schemas/MarketIn"
@@ -606,6 +1175,7 @@
           "model": {
             "$ref": "#/components/schemas/ModelIn",
             "default": {
+              "dividend_treatment": "escrowed",
               "type": "bsm"
             }
           },
@@ -618,9 +1188,29 @@
                 "time_days": 1,
                 "vol_abs": 0.001
               },
+              "digital": {
+                "spread_width_rel": 0.01
+              },
               "force_bump_greeks": false,
               "implied_vol": {
                 "max_iterations": 2
+              },
+              "pde": {
+                "n_std": 5.0,
+                "penalty": 100000000.0,
+                "penalty_max_iter": 25,
+                "penalty_tol": 1e-12,
+                "rannacher_steps": 2,
+                "space_nodes": 800,
+                "time_steps": 200
+              },
+              "scenario": {
+                "pde_space_nodes": 200,
+                "pde_time_steps": 100,
+                "tree_steps": 101
+              },
+              "tree": {
+                "steps": 401
               }
             }
           }
@@ -648,6 +1238,7 @@
             "type": "number"
           },
           "forward": {
+            "description": "Model forward to expiry, including discrete dividends",
             "title": "Forward",
             "type": "number"
           },
@@ -706,6 +1297,21 @@
             ],
             "title": "Axis",
             "type": "string"
+          },
+          "greeks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Greek"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Greeks to compute (default all; [] for value only)",
+            "title": "Greeks"
           },
           "horizons_days": {
             "default": [
@@ -908,6 +1514,35 @@
         "title": "ProfileSeries",
         "type": "object"
       },
+      "ScenarioSettingsIn": {
+        "additionalProperties": false,
+        "description": "Numerical-method resolution for charts.",
+        "properties": {
+          "pde_space_nodes": {
+            "default": 200,
+            "maximum": 20000.0,
+            "minimum": 20.0,
+            "title": "Pde Space Nodes",
+            "type": "integer"
+          },
+          "pde_time_steps": {
+            "default": 100,
+            "maximum": 20000.0,
+            "minimum": 4.0,
+            "title": "Pde Time Steps",
+            "type": "integer"
+          },
+          "tree_steps": {
+            "default": 101,
+            "maximum": 20001.0,
+            "minimum": 3.0,
+            "title": "Tree Steps",
+            "type": "integer"
+          }
+        },
+        "title": "ScenarioSettingsIn",
+        "type": "object"
+      },
       "SettingsIn": {
         "additionalProperties": false,
         "description": "Numerical settings.",
@@ -921,6 +1556,12 @@
               "vol_abs": 0.001
             }
           },
+          "digital": {
+            "$ref": "#/components/schemas/DigitalSettingsIn",
+            "default": {
+              "spread_width_rel": 0.01
+            }
+          },
           "force_bump_greeks": {
             "default": false,
             "description": "Bump-and-revalue every greek, even where closed forms exist",
@@ -932,9 +1573,51 @@
             "default": {
               "max_iterations": 2
             }
+          },
+          "pde": {
+            "$ref": "#/components/schemas/PdeSettingsIn",
+            "default": {
+              "n_std": 5.0,
+              "penalty": 100000000.0,
+              "penalty_max_iter": 25,
+              "penalty_tol": 1e-12,
+              "rannacher_steps": 2,
+              "space_nodes": 800,
+              "time_steps": 200
+            }
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/ScenarioSettingsIn",
+            "default": {
+              "pde_space_nodes": 200,
+              "pde_time_steps": 100,
+              "tree_steps": 101
+            }
+          },
+          "tree": {
+            "$ref": "#/components/schemas/TreeSettingsIn",
+            "default": {
+              "steps": 401
+            }
           }
         },
         "title": "SettingsIn",
+        "type": "object"
+      },
+      "TreeSettingsIn": {
+        "additionalProperties": false,
+        "description": "Leisen\u2013Reimer tree.",
+        "properties": {
+          "steps": {
+            "default": 401,
+            "description": "Odd",
+            "maximum": 20001.0,
+            "minimum": 3.0,
+            "title": "Steps",
+            "type": "integer"
+          }
+        },
+        "title": "TreeSettingsIn",
         "type": "object"
       }
     }
@@ -945,6 +1628,45 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/compare": {
+      "post": {
+        "description": "The product under every registered method, with convergence and exercise boundary.",
+        "operationId": "compare_api_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Compare"
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Liveness probe.",
@@ -1005,7 +1727,7 @@
     },
     "/api/implied-vol": {
       "post": {
-        "description": "Flat implied volatility reproducing a unit price (Let's Be Rational).",
+        "description": "Flat implied volatility reproducing a unit price (Let's Be Rational), European only.",
         "operationId": "implied_vol_api_implied_vol_post",
         "requestBody": {
           "content": {
@@ -1044,7 +1766,7 @@
     },
     "/api/meta": {
       "get": {
-        "description": "Registered pricing methods and version.",
+        "description": "Registered pricing methods, the products each supports, and version.",
         "operationId": "meta_api_meta_get",
         "responses": {
           "200": {
@@ -1102,7 +1824,7 @@
     },
     "/api/profile": {
       "post": {
-        "description": "Position value and desk greeks along spot or time (full revaluation at each point).",
+        "description": "Position value and desk greeks along spot or time (full revaluation at each point).\n\nNumerical methods run at the scenario resolution (``settings.scenario``).",
         "operationId": "profile_api_profile_post",
         "requestBody": {
           "content": {

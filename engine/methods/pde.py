@@ -151,6 +151,43 @@ def solve(
     smooth_left = settings.rannacher_steps
     active = np.zeros(n_x, dtype=bool)  # exercise region carried between penalty solves
 
+    # Per-node quantities, computed once: boundary values and exercise payoffs.
+    disc_to_t = [df[times[-1]] / df[t] for t in times]
+    ends = (float(states[0]), float(states[-1]))
+    bcs: list[np.ndarray] = []
+    exercises: list[np.ndarray | None] = []
+    for i, t in enumerate(times):
+        fwd = np.array([dyn.forward_at_expiry(e, t) for e in ends])
+        if digital:
+            bc = disc_to_t[i] * payout * (omega * (fwd - k) > 0.0)
+        else:
+            bc = disc_to_t[i] * np.maximum(omega * (fwd - k), 0.0)
+        ex = None
+        if american:
+            # Exercise is possible just before and just after an ex-date at t (same elsewhere).
+            ex = np.maximum(payoff_at(t, cum=True), payoff_at(t, cum=False))
+            bc = np.maximum(bc, ex[[0, -1]])
+        bcs.append(bc)
+        exercises.append(ex)
+    matrices: dict[
+        tuple[float, float, float, float], tuple[np.ndarray, np.ndarray, np.ndarray]
+    ] = {}
+
+    def tridiagonal(
+        theta: float, h: float, lo: float, di: float, up: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """``I − θh·L`` with identity rows for the Dirichlet boundaries (cached per step type)."""
+        key = (theta * h, lo, di, up)
+        if key not in matrices:
+            sub = np.full(n_x - 1, -theta * h * lo)
+            sub[-1] = 0.0
+            sup = np.full(n_x - 1, -theta * h * up)
+            sup[0] = 0.0
+            main = np.full(n_x, 1.0 - theta * h * di)
+            main[0] = main[-1] = 1.0
+            matrices[key] = (sub, main, sup)
+        return matrices[key]
+
     for n in range(len(times) - 1, 0, -1):
         t0, t1 = times[n - 1], times[n]
         dt = t1 - t0
@@ -158,20 +195,7 @@ def solve(
         mu = math.log(growth[t1] / growth[t0]) / dt
         b = (mu - 0.5 * dyn.sigma**2) / (2.0 * dx)
         lower, diag, upper = a_half - b, -2.0 * a_half - r, a_half + b
-
-        # Dirichlet boundary values at t0 from the forward asymptotes.
-        disc = df[times[-1]] / df[t0]
-        fwd = np.array([dyn.forward_at_expiry(s, t0) for s in (states[0], states[-1])])
-        if digital:
-            bc = disc * payout * (omega * (fwd - k) > 0.0)
-        else:
-            bc = disc * np.maximum(omega * (fwd - k), 0.0)
-        # Exercise is possible just before and just after an ex-date at t0 (identical elsewhere).
-        exercise = (
-            np.maximum(payoff_at(t0, cum=True), payoff_at(t0, cum=False)) if american else None
-        )
-        if exercise is not None:
-            bc = np.maximum(bc, exercise[[0, -1]])
+        bc, exercise = bcs[n - 1], exercises[n - 1]
 
         substeps = [(1.0, 0.5 * dt), (1.0, 0.5 * dt)] if smooth_left > 0 else [(0.5, dt)]
         smooth_left -= 1
@@ -181,13 +205,7 @@ def solve(
             if explicit:
                 rhs[1:-1] = v[1:-1] + explicit * (lower * v[:-2] + diag * v[1:-1] + upper * v[2:])
             rhs[0], rhs[-1] = bc
-            # Tridiagonal (I − θh·L) with identity rows for the Dirichlet boundaries.
-            sub = np.full(n_x - 1, -theta * h * lower)
-            sub[-1] = 0.0
-            sup = np.full(n_x - 1, -theta * h * upper)
-            sup[0] = 0.0
-            main = np.full(n_x, 1.0 - theta * h * diag)
-            main[0] = main[-1] = 1.0
+            sub, main, sup = tridiagonal(theta, h, lower, diag, upper)
             if exercise is None:
                 v = _tridiagonal_solve(sub, main, sup, rhs)
                 continue
