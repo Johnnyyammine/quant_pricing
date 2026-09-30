@@ -78,6 +78,11 @@ _PURE_UNITS: Mapping[Greek, str] = {
 }
 
 
+def greek_unit(greek: Greek, mode: GreekMode, currency: str) -> str:
+    """Display unit of ``greek`` in ``mode``."""
+    return (_CASH_UNITS if mode is GreekMode.CASH else _PURE_UNITS)[greek].format(ccy=currency)
+
+
 def cash_greek(greek: Greek, value: float, spot: float, quantity: float) -> float:
     """Convert a pure-unit greek to its cash value for a position of ``quantity`` units."""
     match greek:
@@ -113,9 +118,7 @@ def desk_greeks(
         if g not in greeks.values:
             continue
         cash = cash_greek(g, greeks.values[g], spot, quantity)
-        if mode is GreekMode.CASH:
-            value, unit = cash, _CASH_UNITS[g].format(ccy=currency)
-        else:
-            value, unit = PERCENT * cash / notional, _PURE_UNITS[g]
+        value = cash if mode is GreekMode.CASH else PERCENT * cash / notional
+        unit = greek_unit(g, mode, currency)
         out.append(DeskGreek(greek=g, value=value, unit=unit, source=greeks.sources[g]))
     return out

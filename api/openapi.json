@@ -265,9 +265,215 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HeatmapRequest": {
+        "additionalProperties": false,
+        "description": "Full-revaluation value grid over spot and vol shocks.",
+        "properties": {
+          "horizon_days": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Horizon Days",
+            "type": "integer"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/PriceRequest"
+          },
+          "spot_range_pct": {
+            "default": 20.0,
+            "exclusiveMaximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Spot Range Pct",
+            "type": "number"
+          },
+          "spot_steps": {
+            "default": 21,
+            "maximum": 101.0,
+            "minimum": 3.0,
+            "title": "Spot Steps",
+            "type": "integer"
+          },
+          "vol_range_pts": {
+            "default": 10.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Vol Range Pts",
+            "type": "number"
+          },
+          "vol_steps": {
+            "default": 21,
+            "maximum": 101.0,
+            "minimum": 3.0,
+            "title": "Vol Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pricing"
+        ],
+        "title": "HeatmapRequest",
+        "type": "object"
+      },
+      "HeatmapResponse": {
+        "additionalProperties": false,
+        "description": "Position values on a vol \u00d7 spot grid (rows: vol shifts). ``null`` = shock out of domain.",
+        "properties": {
+          "base_value": {
+            "description": "Current position value, currency",
+            "title": "Base Value",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "horizon_days": {
+            "title": "Horizon Days",
+            "type": "integer"
+          },
+          "notional": {
+            "description": "quantity \u00d7 current spot, currency",
+            "title": "Notional",
+            "type": "number"
+          },
+          "spot_shifts_pct": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Spot Shifts Pct",
+            "type": "array"
+          },
+          "values": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "vol_shifts_pts": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Vol Shifts Pts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "currency",
+          "spot_shifts_pct",
+          "vol_shifts_pts",
+          "horizon_days",
+          "base_value",
+          "notional",
+          "values"
+        ],
+        "title": "HeatmapResponse",
+        "type": "object"
+      },
+      "ImpliedVolRequest": {
+        "additionalProperties": false,
+        "description": "Implied vol from a unit price. ``market.vol`` is ignored.",
+        "properties": {
+          "instrument": {
+            "$ref": "#/components/schemas/EuropeanOptionIn"
+          },
+          "market": {
+            "$ref": "#/components/schemas/MarketIn"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelIn",
+            "default": {
+              "type": "bsm"
+            }
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SettingsIn",
+            "default": {
+              "bumps": {
+                "rate_abs": 0.0001,
+                "spot_rel": 0.001,
+                "time_days": 1,
+                "vol_abs": 0.001
+              },
+              "force_bump_greeks": false,
+              "implied_vol": {
+                "max_iterations": 2
+              }
+            }
+          },
+          "target_price": {
+            "description": "Unit price, currency",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Price",
+            "type": "number"
+          }
+        },
+        "required": [
+          "instrument",
+          "market",
+          "target_price"
+        ],
+        "title": "ImpliedVolRequest",
+        "type": "object"
+      },
+      "ImpliedVolResponse": {
+        "additionalProperties": false,
+        "description": "Implied vol and the quantities it was solved from.",
+        "properties": {
+          "discount_factor": {
+            "title": "Discount Factor",
+            "type": "number"
+          },
+          "forward": {
+            "title": "Forward",
+            "type": "number"
+          },
+          "implied_vol": {
+            "description": "Decimal",
+            "title": "Implied Vol",
+            "type": "number"
+          },
+          "time_to_expiry": {
+            "title": "Time To Expiry",
+            "type": "number"
+          }
+        },
+        "required": [
+          "implied_vol",
+          "forward",
+          "discount_factor",
+          "time_to_expiry"
+        ],
+        "title": "ImpliedVolResponse",
+        "type": "object"
+      },
+      "ImpliedVolSettingsIn": {
+        "additionalProperties": false,
+        "description": "Implied-vol solver settings.",
+        "properties": {
+          "max_iterations": {
+            "default": 2,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Iterations",
+            "type": "integer"
+          }
+        },
+        "title": "ImpliedVolSettingsIn",
+        "type": "object"
+      },
       "MarketIn": {
         "additionalProperties": false,
-        "description": "Flat market: continuously compounded rates, ACT/365F.",
+        "description": "Flat market: continuously compounded rates, ACT/365F.\n\nUnder Black-76, ``spot`` is the forward (futures) price for the option expiry and the\ndividend yield and borrow spread are ignored.",
         "properties": {
           "borrow": {
             "default": 0.0,
@@ -361,8 +567,11 @@
         "description": "Model selection.",
         "properties": {
           "type": {
-            "const": "bsm",
             "default": "bsm",
+            "enum": [
+              "bsm",
+              "black76"
+            ],
             "title": "Type",
             "type": "string"
           }
@@ -390,7 +599,7 @@
             "$ref": "#/components/schemas/MarketIn"
           },
           "method": {
-            "default": "forward_intrinsic",
+            "default": "analytic",
             "title": "Method",
             "type": "string"
           },
@@ -408,6 +617,10 @@
                 "spot_rel": 0.001,
                 "time_days": 1,
                 "vol_abs": 0.001
+              },
+              "force_bump_greeks": false,
+              "implied_vol": {
+                "max_iterations": 2
               }
             }
           }
@@ -441,6 +654,11 @@
           "greeks": {
             "$ref": "#/components/schemas/GreeksOut"
           },
+          "notional": {
+            "description": "quantity \u00d7 spot, currency",
+            "title": "Notional",
+            "type": "number"
+          },
           "pct_notional": {
             "description": "100 \u00d7 unit price / spot, %",
             "title": "Pct Notional",
@@ -467,6 +685,7 @@
           "price",
           "position_value",
           "pct_notional",
+          "notional",
           "forward",
           "discount_factor",
           "time_to_expiry",
@@ -474,6 +693,219 @@
           "diagnostics"
         ],
         "title": "PriceResponse",
+        "type": "object"
+      },
+      "ProfileRequest": {
+        "additionalProperties": false,
+        "description": "Price and greeks along spot (at several horizons) or along time (at several spot shifts).",
+        "properties": {
+          "axis": {
+            "enum": [
+              "spot",
+              "time"
+            ],
+            "title": "Axis",
+            "type": "string"
+          },
+          "horizons_days": {
+            "default": [
+              0
+            ],
+            "description": "Spot axis: valuation-date rolls",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Horizons Days",
+            "type": "array"
+          },
+          "points": {
+            "default": 81,
+            "maximum": 201.0,
+            "minimum": 2.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/PriceRequest"
+          },
+          "spot_range_pct": {
+            "default": 30.0,
+            "description": "Spot axis: \u00b1range, %",
+            "exclusiveMaximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Spot Range Pct",
+            "type": "number"
+          },
+          "spot_shifts_pct": {
+            "default": [
+              0.0
+            ],
+            "description": "Time axis: spot shifts, %",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Spot Shifts Pct",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pricing",
+          "axis"
+        ],
+        "title": "ProfileRequest",
+        "type": "object"
+      },
+      "ProfileResponse": {
+        "additionalProperties": false,
+        "description": "Profiles along spot or time.",
+        "properties": {
+          "axis": {
+            "enum": [
+              "spot",
+              "time"
+            ],
+            "title": "Axis",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "notional": {
+            "description": "quantity \u00d7 current spot, currency",
+            "title": "Notional",
+            "type": "number"
+          },
+          "payoff": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Spot axis: position payoff at expiry",
+            "title": "Payoff"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSeries"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "spot": {
+            "title": "Spot",
+            "type": "number"
+          },
+          "strike": {
+            "title": "Strike",
+            "type": "number"
+          },
+          "units": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "$ref": "#/components/schemas/Greek"
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "pure",
+                "cash"
+              ]
+            },
+            "title": "Units",
+            "type": "object"
+          },
+          "x": {
+            "description": "Spot level, or days to expiry",
+            "items": {
+              "type": "number"
+            },
+            "title": "X",
+            "type": "array"
+          }
+        },
+        "required": [
+          "axis",
+          "x",
+          "currency",
+          "notional",
+          "strike",
+          "spot",
+          "payoff",
+          "units",
+          "series"
+        ],
+        "title": "ProfileResponse",
+        "type": "object"
+      },
+      "ProfileSeries": {
+        "additionalProperties": false,
+        "description": "One line family of a profile: value and greeks along the x axis.",
+        "properties": {
+          "greeks": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "propertyNames": {
+                "$ref": "#/components/schemas/Greek"
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "pure",
+                "cash"
+              ]
+            },
+            "title": "Greeks",
+            "type": "object"
+          },
+          "horizon_days": {
+            "title": "Horizon Days",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "position_value": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Position Value",
+            "type": "array"
+          },
+          "spot_shift_pct": {
+            "title": "Spot Shift Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "horizon_days",
+          "spot_shift_pct",
+          "position_value",
+          "greeks"
+        ],
+        "title": "ProfileSeries",
         "type": "object"
       },
       "SettingsIn": {
@@ -487,6 +919,18 @@
               "spot_rel": 0.001,
               "time_days": 1,
               "vol_abs": 0.001
+            }
+          },
+          "force_bump_greeks": {
+            "default": false,
+            "description": "Bump-and-revalue every greek, even where closed forms exist",
+            "title": "Force Bump Greeks",
+            "type": "boolean"
+          },
+          "implied_vol": {
+            "$ref": "#/components/schemas/ImpliedVolSettingsIn",
+            "default": {
+              "max_iterations": 2
             }
           }
         },
@@ -518,6 +962,84 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/heatmap": {
+      "post": {
+        "description": "Full-revaluation position values over spot \u00d7 vol shocks, optionally after a time roll.",
+        "operationId": "heatmap_api_heatmap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeatmapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeatmapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Heatmap"
+      }
+    },
+    "/api/implied-vol": {
+      "post": {
+        "description": "Flat implied volatility reproducing a unit price (Let's Be Rational).",
+        "operationId": "implied_vol_api_implied_vol_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImpliedVolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpliedVolResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Implied Vol"
       }
     },
     "/api/meta": {
@@ -576,6 +1098,45 @@
           }
         },
         "summary": "Price"
+      }
+    },
+    "/api/profile": {
+      "post": {
+        "description": "Position value and desk greeks along spot or time (full revaluation at each point).",
+        "operationId": "profile_api_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Profile"
       }
     }
   }
