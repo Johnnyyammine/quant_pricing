@@ -85,9 +85,9 @@ class PdeSettings:
 
     """
 
-    space_nodes: int = 400
-    time_steps: int = 400
-    n_std: float = 6.0
+    space_nodes: int = 800
+    time_steps: int = 200
+    n_std: float = 5.0
     rannacher_steps: int = 2
     penalty: float = 1e8
     penalty_tol: float = 1e-12
@@ -132,7 +132,7 @@ class ScenarioSettings:
     """
 
     tree_steps: int = 101
-    pde_space_nodes: int = 160
+    pde_space_nodes: int = 200
     pde_time_steps: int = 100
 
 

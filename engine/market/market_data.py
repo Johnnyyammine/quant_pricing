@@ -122,20 +122,28 @@ class MarketData:
             return self.spot * self.growth(t)
         return self.forward_sensitivities(t).forward
 
-    def escrowed_cash(self, t: float, maturity: float) -> float:
-        """Escrowed cash ``E_t`` of dividends in ``(t, maturity]`` (module docstring)."""
+    def _after(self, e: DividendEvent, t: float, cum: bool) -> bool:
+        """Is ``e`` still to come at ``t``? With ``cum``, a dividend going ex at ``t`` counts."""
+        return e.t > t - SAME_INSTANT if cum else e.t > t + SAME_INSTANT
+
+    def escrowed_cash(self, t: float, maturity: float, *, cum: bool = False) -> float:
+        """Escrowed cash ``E_t`` of dividends in ``(t, maturity]`` (module docstring).
+
+        With ``cum=True`` a dividend going ex exactly at ``t`` is still included (the value just
+        before the ex-date open, used for early-exercise decisions on ex-dates).
+        """
         total, g_t, prop = 0.0, self.growth(t), 1.0
         for e in self.dividend_events(maturity):
-            if e.t <= t + SAME_INSTANT:
+            if not self._after(e, t, cum):
                 continue
             prop *= 1.0 - e.proportional
             total += e.cash * g_t / self.growth(e.t) / prop
         return total
 
-    def proportional_factor(self, t: float, maturity: float) -> float:
-        """``Π_{t < t_j ≤ maturity}(1 − δ_j)``."""
+    def proportional_factor(self, t: float, maturity: float, *, cum: bool = False) -> float:
+        """``Π_{t < t_j ≤ maturity}(1 − δ_j)`` (with ``cum``, ``t ≤ t_j``)."""
         factor = 1.0
         for e in self.dividend_events(maturity):
-            if e.t > t + SAME_INSTANT:
+            if self._after(e, t, cum):
                 factor *= 1.0 - e.proportional
         return factor

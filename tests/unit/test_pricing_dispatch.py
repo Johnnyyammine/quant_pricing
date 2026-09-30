@@ -21,7 +21,7 @@ def test_unsupported_combination_raises(market, call):
 @pytest.mark.parametrize("model", [BlackScholesMerton(), Black76()])
 def test_registry_lookup(call, model):
     assert isinstance(get_method("analytic"), AnalyticBlack)
-    assert [m.name for m in methods_for(call, model)] == ["analytic"]
+    assert [m.name for m in methods_for(call, model)] == ["analytic", "lr_tree", "cn_pde"]
 
 
 def test_unknown_method():

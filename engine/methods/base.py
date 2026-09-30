@@ -8,8 +8,8 @@ the generic bump-and-revalue layer in :mod:`engine.risk.greeks`.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from typing import ClassVar
 
 from engine.instruments.base import Instrument
@@ -46,6 +46,25 @@ class PricingMethod(ABC):
         settings: PricingSettings,
     ) -> MethodOutput:
         """Unit price of ``instrument``. Called only when :meth:`supports` is true."""
+
+    def evaluate_ladder(
+        self,
+        instrument: Instrument,
+        market: MarketData,
+        model: Model,
+        settings: PricingSettings,
+        multipliers: Sequence[float],
+    ) -> list[float]:
+        """Unit prices at spots ``market.spot·m`` for each ``m``.
+
+        Default: one :meth:`evaluate` per spot. Grid and lattice methods override this to share
+        one solve across all spots (the result must equal the per-spot evaluation up to the
+        method's own discretisation).
+        """
+        return [
+            self.evaluate(instrument, replace(market, spot=market.spot * m), model, settings).value
+            for m in multipliers
+        ]
 
     def analytic_greeks(
         self,

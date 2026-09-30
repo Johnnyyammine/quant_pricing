@@ -8,9 +8,13 @@ from types import MappingProxyType
 from engine.instruments.base import Instrument
 from engine.methods.analytic import AnalyticBlack
 from engine.methods.base import PricingMethod
+from engine.methods.pde import CrankNicolsonPde
+from engine.methods.tree import LeisenReimerTree
 from engine.models.base import Model
 
-METHODS: Mapping[str, PricingMethod] = MappingProxyType({m.name: m for m in (AnalyticBlack(),)})
+METHODS: Mapping[str, PricingMethod] = MappingProxyType(
+    {m.name: m for m in (AnalyticBlack(), LeisenReimerTree(), CrankNicolsonPde())}
+)
 
 
 def get_method(name: str) -> PricingMethod:

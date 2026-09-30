@@ -36,7 +36,7 @@ def test_health(client):
 
 def test_meta_lists_methods(client):
     names = [m["name"] for m in client.get("/api/meta").json()["methods"]]
-    assert names == ["analytic"]
+    assert names == ["analytic", "lr_tree", "cn_pde"]
 
 
 def test_price_round_trip(client):
